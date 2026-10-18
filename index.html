@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#151827"/>
+  <meta name="description" content="A little place for your people. Explore your friends' rooms and the stories you share."/>
+  <title>The House — a little place for your people</title>
+  <link rel="stylesheet" href="./styles.css"/>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="The House home"><span class="brand-symbol">⌂</span> the house<span class="brand-period">.</span></a>
+      <span class="topbar-caption">a little place for your people <span class="heart">♥</span></span>
+      <div class="topbar-right"><span class="demo-pill"><span class="online-light"></span> Playable prototype</span><button class="help-icon" id="help" aria-label="Instructions">?</button></div>
+    </header>
+    <main class="workspace">
+      <section class="world-column">
+        <div class="scene-heading">
+          <div><span class="eyebrow">YOUR SHARED LITTLE WORLD</span><h1 id="scene-name">The house on Bloom Street</h1><p id="scene-desc">Four personal rooms. One shared lounge. So many stories.</p></div>
+          <button id="back" class="btn ghost" hidden>← Back to house</button>
+        </div>
+        <div class="stage" id="stage">
+          <svg id="world" viewBox="0 0 1250 1010" preserveAspectRatio="xMidYMid meet" aria-label="Interactive illustrated house" role="img"></svg>
+          <div class="stage-note" id="stage-note">✳ Click a room to step inside</div>
+          <div class="stage-key" id="move-guide" hidden>↑ ↓ ← → &nbsp; / &nbsp; WASD to walk</div>
+        </div>
+        <div class="scene-footer"><span>✦ An illustrated world with original sprite characters</span><span>Built for close friends · Private by default</span></div>
+      </section>
+      <aside id="inspector" class="inspector" aria-live="polite"></aside>
+    </main>
+    <footer class="bottom-bar"><span>THE HOUSE <span class="muted">/ A storytelling interaction experiment</span></span><span>Prototype data · No accounts, no messages sent</span></footer>
+  </div>
+  <dialog id="letter-dialog" class="letter-dialog">
+    <form method="dialog" id="letter-form">
+      <div class="dialog-top"><span class="eyebrow">LEAVE SOMETHING BEHIND</span><button type="button" class="close" id="close-letter" aria-label="Close">×</button></div>
+      <h2>For <span id="letter-friend"></span> 💌</h2>
+      <p>Write a little note that they'll find in their room.</p>
+      <textarea id="letter-text" maxlength="320" required placeholder="Hey, this reminded me of you..."></textarea>
+      <div class="dialog-actions"><button type="button" class="btn ghost" id="cancel-letter">Cancel</button><button type="submit" value="send" class="btn primary">Seal the letter ↗</button></div>
+      <small>This demo saves letters in this browser only. Nothing is sent to a friend.</small>
+    </form>
+  </dialog>
+  <script src="./app.js"></script>
+</body>
+</html>
