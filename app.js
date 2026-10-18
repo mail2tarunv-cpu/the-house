@@ -11,17 +11,17 @@
   const NS = 'http://www.w3.org/2000/svg';
   const ORIGINAL = { x:0, y:0, w:1672, h:941 };
   const PEOPLE = {
-    maya: { name:'Maya', subtitle:'Reading everything, all at once.', color:'#6d916f', x:730, y:300 },
-    jay:  { name:'Jay', subtitle:'Always has a new record.', color:'#c77768', x:1237, y:304 },
+    maya: { name:'Maya', subtitle:'Reading everything, all at once.', color:'#6d916f', x:727, y:309 },
+    jay:  { name:'Jay', subtitle:'Always has a new record.', color:'#c77768', x:1284, y:310 },
     you:  { name:'You', subtitle:'Here for the little moments.', color:'#9882b7', x:805, y:655 }
   };
   const ROOMS = {
-    maya: {name:"Maya's room",kicker:'01 / THE LITTLE LIBRARY',description:'A bookshelf, a few favorites, a little window into her week.',cx:589,cy:252,w:800,actor:'maya',walk:{lo:645,hi:765,y:320},objects:[
-      {id:'books',name:'Books',x:557,y:233},{id:'update',name:'Life update',x:748,y:273},{id:'notes',name:'Letters',x:694,y:322},{id:'daily',name:'Daily photo',x:448,y:239}]},
-    jay: {name:"Jay's room",kicker:'02 / SOUNDTRACKS & STORIES',description:'Films, records and whatever Jay has been obsessing over.',cx:1103,cy:248,w:803,actor:'jay',walk:{lo:1185,hi:1280,y:326},objects:[
-      {id:'vinyl',name:'Vinyl',x:1000,y:318},{id:'movies',name:'Movies',x:1073,y:218},{id:'update',name:'Life update',x:1283,y:271},{id:'daily',name:'Daily photo',x:1158,y:196},{id:'notes',name:'Notes',x:889,y:327}]},
-    lounge: {name:'The shared lounge',kicker:'03 / THE PLACE WE SHARE',description:'A room shaped by the stories we have together.',cx:864,cy:637,w:1132,actor:'you',walk:{lo:775,hi:1015,y:688},objects:[
-      {id:'gallery',name:'Photo wall',x:497,y:495},{id:'tv',name:'Watch together',x:460,y:602},{id:'daily',name:"Today's photo",x:710,y:660},{id:'notes',name:'Visitor notes',x:654,y:664},{id:'lounge',name:"Who's here?",x:860,y:523},{id:'update',name:'Life updates',x:930,y:490}]}
+    maya: {name:"Maya's room",kicker:'01 / THE LITTLE LIBRARY',description:'A bookshelf, a few favorites, a little window into her week.',cx:519,cy:262,w:715,actor:'maya',walk:{lo:645,hi:765,y:320},objects:[
+      {id:'books',name:'Books',x:551,y:262},{id:'update',name:'Life update',x:741,y:282},{id:'notes',name:'Letters',x:724,y:360},{id:'daily',name:'Daily photo',x:761,y:302}]},
+    jay: {name:"Jay's room",kicker:'02 / SOUNDTRACKS & STORIES',description:'Films, records and whatever Jay has been obsessing over.',cx:1154,cy:262,w:735,actor:'jay',walk:{lo:1185,hi:1280,y:326},objects:[
+      {id:'vinyl',name:'Vinyl',x:1010,y:315},{id:'movies',name:'Movies',x:1082,y:223},{id:'update',name:'Life update',x:1420,y:302},{id:'daily',name:'Daily photo',x:1428,y:280},{id:'notes',name:'Notes',x:872,y:314}]},
+    lounge: {name:'The shared lounge',kicker:'03 / THE PLACE WE SHARE',description:'A room shaped by the stories we have together.',cx:831,cy:616,w:1110,actor:'you',walk:{lo:775,hi:1015,y:688},objects:[
+      {id:'gallery',name:'Photo wall',x:744,y:527},{id:'tv',name:'Watch together',x:425,y:569},{id:'daily',name:"Today's photo",x:796,y:544},{id:'notes',name:'Visitor notes',x:684,y:679},{id:'lounge',name:"Who's here?",x:860,y:523},{id:'update',name:'Life updates',x:930,y:490}]}
   };
   const SEED = {
     presence: {maya:true,jay:false,you:true},
