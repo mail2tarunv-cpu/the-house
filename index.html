@@ -1,53 +1,52 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#faf9f6">
-  <meta name="description" content="A little digital home for your favorite people.">
-  <title>The House — a little world for your people</title>
-  <link rel="preload" href="./assets/house-approved.webp" as="image" type="image/webp">
-  <link rel="stylesheet" href="./styles.css">
-  <script defer src="./app.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#fbfaf7">
+<title>The House — A little space for us</title>
+<meta name="description" content="Our rooms. Our little stories. A playable close-friends social space demo.">
+<link rel="preload" href="./assets/house-approved.webp" as="image" type="image/webp">
+<link rel="stylesheet" href="./styles.css">
+<script src="./app.js" defer></script>
 </head>
 <body>
-  <div class="app">
-    <header class="site-header">
-      <a class="wordmark" href="./" aria-label="The House — Home"><span class="house-icon" aria-hidden="true">⌂</span> the house<span class="dot">.</span></a>
-      <span class="topline">A LITTLE PLACE FOR YOUR PEOPLE</span>
-      <div class="header-actions"><span class="prototype-label"><span class="green-dot"></span> A LIVING PROTOTYPE</span><button id="reset-top" class="header-back" type="button" hidden>← View house</button></div>
-    </header>
-
-    <main class="main">
-      <div class="hero-copy" id="hero-copy"><span class="overline" id="eyebrow">WELCOME HOME</span><h1 id="headline">A little world, just for your people.</h1><p id="subhead">A story in every room. Pick a door and step inside.</p></div>
-      <div class="house-stage" id="house-stage">
-        <svg id="house-scene" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Illustrated house. Select a room to explore.">
-          <image id="house-art" x="0" y="0" width="1672" height="941" href="./assets/house-approved.webp" preserveAspectRatio="xMidYMid meet"></image>
-          <g id="house-room-targets" class="room-targets">
-            <path data-room="reader" class="room-hit" d="M353,143 L818,98 L824,410 L354,408 Z" tabindex="0" role="button" aria-label="Enter Maya's reading room"><title>Enter Maya's room</title></path>
-            <path data-room="creative" class="room-hit" d="M842,94 L1371,139 L1372,406 L837,409 Z" tabindex="0" role="button" aria-label="Enter Jay's creative room"><title>Enter Jay's room</title></path>
-            <path data-room="lounge" class="room-hit" d="M351,436 L1397,438 L1393,782 L349,783 Z" tabindex="0" role="button" aria-label="Enter shared lounge"><title>Enter the shared lounge</title></path>
-          </g>
-          <g id="object-targets" class="object-targets" hidden></g>
-        </svg>
-        <div class="scene-corner" id="scene-corner"><span class="asterisk">✳</span> CLICK A ROOM TO EXPLORE</div>
-        <div class="scene-hint" id="scene-hint" hidden>Click a glowing object</div>
-        <div class="image-credit">ORIGINAL HOUSE ILLUSTRATION · V1</div>
-      </div>
-      <nav class="room-nav" aria-label="Choose a room">
-        <button class="room-choice" data-room-button="reader" type="button"><span class="choice-icon book">01</span><span class="choice-copy"><strong>Maya's room</strong><small>Books & quiet things</small></span><span class="choice-arrow">↗</span></button>
-        <button class="room-choice" data-room-button="creative" type="button"><span class="choice-icon music">02</span><span class="choice-copy"><strong>Jay's room</strong><small>Music & everything else</small></span><span class="choice-arrow">↗</span></button>
-        <button class="room-choice" data-room-button="lounge" type="button"><span class="choice-icon shared">03</span><span class="choice-copy"><strong>The lounge</strong><small>Where stories meet</small></span><span class="choice-arrow">↗</span></button>
-      </nav>
-    </main>
-    <footer class="footer"><span>MADE FOR LITTLE MOMENTS THAT MATTER.</span><span id="footer-status">01 / 01 · HOUSE OVERVIEW</span></footer>
+<div class="app-shell">
+<header class="topbar">
+  <a class="wordmark" href="./"><span class="brand-icon">⌂</span> the house<span class="period">.</span></a>
+  <span class="topbar-center">A little space for the people who matter</span>
+  <div class="top-actions"><span class="demo-status"><i></i> INTERACTIVE DEMO</span><button class="outline-btn" type="button" id="return-home" hidden>↖ Whole house</button></div>
+</header>
+<main class="content">
+  <div class="intro" id="intro"><div><span class="eyebrow" id="scene-kicker">COME ON IN</span><h1 id="scene-title">Different rooms. One little world.</h1><p id="scene-subtitle">Step into a friend's space, leave a note, or see what everyone is up to.</p></div><button class="quiet-help" id="show-help" aria-label="How to play">? <span>How it works</span></button></div>
+  <div class="scene-wrap" id="scene-wrap">
+    <svg viewBox="0 0 1672 941" id="scene" role="group" aria-label="Illustrated three-room house: two bedrooms upstairs and a shared lounge downstairs" preserveAspectRatio="xMidYMid meet">
+      <image x="0" y="0" width="1672" height="941" href="./assets/house-approved.webp" preserveAspectRatio="xMidYMid meet" />
+      <g id="room-targets">
+        <path class="room-hit" data-room="maya" role="button" tabindex="0" aria-label="Enter Maya's reading room" d="M347 147 L824 83 L830 402 L344 406 Z"><title>Maya's room</title></path>
+        <path class="room-hit" data-room="jay" role="button" tabindex="0" aria-label="Enter Jay's music and movie room" d="M846 87 L1372 145 L1376 409 L836 410 Z"><title>Jay's room</title></path>
+        <path class="room-hit" data-room="lounge" role="button" tabindex="0" aria-label="Enter the shared lounge" d="M350 436 L1395 437 L1395 782 L346 788 Z"><title>Shared lounge</title></path>
+      </g>
+      <g id="ambient-actors" pointer-events="none"></g>
+      <g id="room-objects" hidden></g>
+      <g id="character-overlays"></g>
+    </svg>
+    <div class="scene-overlay" id="scene-overlay"><span class="asterisk">✳</span> CLICK A ROOM TO EXPLORE</div>
+    <div class="scene-caption" id="scene-caption" hidden>✳ Tap an object or character · Click the floor to move</div>
   </div>
-  <section class="inspect-drawer" id="inspect-drawer" hidden role="dialog" aria-modal="false" aria-labelledby="inspect-title">
-    <button id="inspect-close" type="button" class="inspect-close" aria-label="Close detail">×</button>
-    <span id="inspect-eyebrow" class="overline">DISCOVER</span>
-    <h2 id="inspect-title"></h2>
-    <p id="inspect-description"></p>
-    <span class="drawer-label">A SMALL STORY, COMING TO LIFE.</span>
-  </section>
+  <nav class="room-tabs" aria-label="Explore rooms">
+    <button class="room-button" data-goto="maya"><span class="nav-symbol green">01</span><span><strong>Maya's room</strong><small>Books, little thoughts, letters</small></span><span class="arr">↗</span></button>
+    <button class="room-button" data-goto="jay"><span class="nav-symbol coral">02</span><span><strong>Jay's room</strong><small>Films, vinyl, current obsessions</small></span><span class="arr">↗</span></button>
+    <button class="room-button" data-goto="lounge"><span class="nav-symbol sand">03</span><span><strong>Shared lounge</strong><small>Photos, daily moments, memories</small></span><span class="arr">↗</span></button>
+  </nav>
+</main>
+<footer class="footer"><span>GOOD STORIES START IN SMALL PLACES.</span><span id="footer-label">HOUSE OVERVIEW · 01 / 01</span></footer>
+</div>
+<div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+<aside class="drawer" id="drawer" hidden role="dialog" aria-label="Room interaction panel" aria-modal="false">
+  <div class="drawer-header"><span class="eyebrow" id="drawer-kicker">IN THE ROOM</span><button class="round-close" id="drawer-close" aria-label="Close panel">×</button></div>
+  <div id="drawer-content"></div>
+</aside>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

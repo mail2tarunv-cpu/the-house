@@ -1,18 +1,38 @@
-# The House — room zoom MVP
+# The House — Social Rooms Prototype
 
-This is the barebones zoom prototype built around **the exact approved house composition**. No sprites, character animation, multiplayer or unrelated room art is used here.
+An interactive, illustrated house for close friends.
 
-## What works
-- One original illustrated house on a white background.
-- Three selectable rooms (Maya's reading room, Jay's creative room, the shared lounge).
-- Smooth SVG camera zoom to the same image, with clickable polygons staying aligned.
-- Two object hotspots per room, with short demo story cards.
-- Return to whole-house view, Escape key, responsive layout, reduced-motion support.
+## What's in this build
 
-## Deploy
-Static app: Vercel Framework Preset **Other**, Root Directory **./**, Output Directory **./**, no custom build command. `index.html` is the entry point.
+- Exact approved three-room house illustration
+- Click a room to zoom in; Back or Escape to return
+- Maya, Jay, and You have SVG sprite sheets (4 idle + 4 walking frames)
+- Click characters to view simulated online/offline status
+- Book, movie and vinyl collections with editable demo entries
+- Visitor letters, latest life updates, and one daily photo per room
+- Shared lounge arrival states, small character movement on room floor
+- Responsive mobile and desktop interface
 
-Run locally: `python3 -m http.server 3000` and open http://localhost:3000.
+## Important demo limits
 
-## Next visual iteration
-Approve the zoom/camera framing first. Then make aligned high-resolution room layers, transparent object assets, and original sprite characters separately. Do not animate characters baked into the scene.
+This is **not** connected multiplayer. Room content and photo uploads are stored locally in the browser via localStorage. Presence and lounge arrivals are simulated, not real-time. No server-side data, user accounts, or real letters to friends exist yet.
+
+## Local preview
+
+Use a static HTTP server from this repository root:
+
+```sh
+python3 -m http.server 3000
+```
+
+Open http://localhost:3000.
+
+## Vercel
+
+Framework: **Other**; Root Directory: repository root; no build command; Output Directory: `.`. `vercel.json` includes the static hosting configuration.
+
+## Next art & product work
+
+Refine walking depth/occlusion, original high-resolution artwork for room-closeup states, animated interactions for the books, movies, records, notes and TV; then design backend authentication, invited circles, content privacy and realtime presence.
+
+Current assets are demo art, not production illustrated sprite quality.
