@@ -708,3 +708,86 @@
 @media(prefers-reduced-motion:reduce){
  .lbx-book-tile,.lbx-book-art,.lbx-back span,.stage #detail-image{transition:none!important}
 }
+
+
+/* Maya bookshelf final pass: scoped to the existing editorial library. */
+.artifact--books{width:min(1120px,calc(100vw - 40px));border:1px solid #e8e6de;background:#fbf9f4;overscroll-behavior:contain;scrollbar-width:thin}
+.artifact--books.is-open{animation:lbx-dialog-in .38s cubic-bezier(.2,.82,.24,1) both}
+.artifact--books:not(.is-open){animation:lbx-dialog-out .31s cubic-bezier(.5,0,.7,.25) both;pointer-events:none}
+@keyframes lbx-dialog-in{from{opacity:0;transform:translate(-50%,-47%) scale(.975)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes lbx-dialog-out{from{opacity:1;transform:translate(-50%,-50%) scale(1)}to{opacity:0;transform:translate(-50%,-47%) scale(.975)}}
+.dialog-backdrop:has(+ .artifact--books){animation:none;opacity:0;transition:opacity .33s ease,backdrop-filter .33s ease;backdrop-filter:blur(0);background:rgba(19,26,18,.47)}
+.dialog-backdrop.is-open:has(+ .artifact--books.is-open){opacity:1;backdrop-filter:blur(3px)}
+.artifact--books .artifact-top{position:absolute;z-index:10;top:18px;right:19px;left:auto;height:auto;padding:0;border:0;background:transparent;pointer-events:none}
+.artifact--books .artifact-meta{display:none}
+.artifact--books .close-button{pointer-events:auto;width:41px;height:41px;background:#fcfaf5;border:1px solid #ebe8df;color:#344438;box-shadow:0 3px 12px #2b342111}
+.artifact--books .close-button:hover{background:#e7eee7}
+.artifact--books .artifact-body{background:#fbf9f3!important}
+.artifact--books .lbx-experience{grid-template-columns:250px minmax(0,1fr);min-height:600px}
+.artifact--books .lbx-sidebar{background:#20392b;padding:34px 28px}
+.artifact--books .lbx-owner h2{font-size:38px;letter-spacing:-.06em;line-height:1.08}
+.artifact--books .lbx-main{background:#fbf9f3}
+.artifact--books .lbx-grid-scene{padding:36px 46px 27px;min-height:600px}
+.artifact--books .lbx-grid-top{padding-right:54px;align-items:start}
+.artifact--books .lbx-grid-top h3{font-size:36px;color:#1e2a22}
+.artifact--books .lbx-edit-link{padding:10px 16px;background:#f7f7f0;border-color:#b7c2b6;color:#274d34}
+.artifact--books .lbx-tabs{margin-top:26px;gap:12px}
+.artifact--books .lbx-tab[aria-pressed=true]{background:#e5e9df;border-radius:22px 22px 0 0;padding-left:13px;padding-right:13px}
+.artifact--books .lbx-grid{gap:22px}
+.artifact--books .lbx-book-tile{display:block;position:relative;padding:10px 10px 16px;background:#fdfbf7;border:1px solid #eee9de;border-radius:10px;box-shadow:0 7px 18px #262e2010;transition:transform .23s cubic-bezier(.2,.76,.25,1),box-shadow .23s ease,border-color .23s ease}
+.artifact--books .lbx-book-tile:hover{transform:translateY(-3px);box-shadow:0 13px 28px #262e201a;border-color:#dedfd3}
+.artifact--books .lbx-book-open{display:flex;flex-direction:column;align-items:stretch;width:100%;padding:0;text-align:left;color:inherit;background:transparent;border:0}
+.artifact--books .lbx-book-open:focus-visible,.artifact--books .lbx-tile-save:focus-visible{outline:2px solid #4e7355;outline-offset:4px}
+.artifact--books .lbx-book-art{display:block;width:100%;max-width:none;margin:0 0 13px;filter:none!important}
+.artifact--books .lbx-cover{aspect-ratio:2/2.65;border-radius:4px 6px 6px 4px;background:#ebe4d6}
+.artifact--books .lbx-cover img{object-fit:contain;background:#efe9de}
+.artifact--books .lbx-book-title{font:600 14px/1.3 Georgia,'Times New Roman',serif;max-width:none;color:#222a23;padding-right:20px;min-height:18px}
+.artifact--books .lbx-book-author{font:12px/1.45 Georgia,'Times New Roman',serif;max-width:none;color:#7d8078;padding-right:20px;margin-top:5px}
+.artifact--books .lbx-tile-save{position:absolute;right:11px;bottom:14px;width:25px;height:28px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#7c897c;border-radius:4px;transition:color .18s ease,background .18s ease}
+.artifact--books .lbx-tile-save:hover,.artifact--books .lbx-tile-save.is-saved{color:#285b37;background:#e5ebe2}
+.artifact--books .lbx-page{animation:lbx-page-in .23s cubic-bezier(.2,.8,.3,1) both}
+@keyframes lbx-page-in{from{opacity:.3;translate:0 7px}to{opacity:1;translate:0 0}}
+.artifact--books .lbx-create{padding:35px 46px 32px;min-height:600px}
+.artifact--books .lbx-create-heading{margin:35px 0 0}
+.artifact--books .lbx-create-heading h3{font:400 35px/1.1 Georgia,'Times New Roman',serif;letter-spacing:-.05em;color:#273a2c;margin:11px 0}
+.artifact--books .lbx-create-heading p{font-size:12px;color:#879084;line-height:1.6;margin:0}
+.artifact--books .lbx-add-form{background:transparent;border:0;border-top:1px solid #e0e4da;padding:23px 0 0;border-radius:0;margin-top:25px}
+.artifact--books .lbx-add-form .lbx-form-heading{margin-bottom:24px}
+.artifact--books .lbx-add-form .lbx-form-grid{row-gap:7px;column-gap:17px}
+.artifact--books .lbx-add-form label{font-size:11px}
+.artifact--books .lbx-add-form input,.artifact--books .lbx-add-form select,.artifact--books .lbx-add-form textarea{padding:12px;border-radius:7px;background:#fffcf6;font-size:12px}
+.artifact--books .lbx-form-help{font-size:10px;line-height:1.6;color:#879188;margin:14px 0 0}
+@media(max-width:920px){
+ .artifact--books .lbx-experience{grid-template-columns:200px minmax(0,1fr)}
+ .artifact--books .lbx-sidebar{padding:29px 20px}
+ .artifact--books .lbx-owner h2{font-size:30px}
+ .artifact--books .lbx-grid-scene,.artifact--books .lbx-create{padding:27px 25px}
+ .artifact--books .lbx-grid{gap:12px}
+ .artifact--books .lbx-grid-top{padding-right:43px}
+ .artifact--books .lbx-book-title{font-size:12px}
+}
+@media(max-width:650px){
+ .artifact--books{width:calc(100vw - 14px);max-height:calc(100dvh - 16px)}
+ .artifact--books .artifact-top{top:8px;right:10px}
+ .artifact--books .close-button{width:36px;height:36px}
+ .artifact--books .lbx-experience{display:block;min-height:0}
+ .artifact--books .lbx-sidebar{padding:18px 20px 17px}
+ .artifact--books .lbx-monogram{right:62px;top:16px}
+ .artifact--books .lbx-owner h2{font-size:25px;line-height:1.1}
+ .artifact--books .lbx-grid-scene,.artifact--books .lbx-create{min-height:450px;padding:24px 17px}
+ .artifact--books .lbx-grid-top{padding-right:0}
+ .artifact--books .lbx-grid-top h3{font-size:27px}
+ .artifact--books .lbx-edit-link{padding:8px 11px;margin-top:8px;font-size:10px}
+ .artifact--books .lbx-tabs{gap:3px;margin:19px 0 18px}
+ .artifact--books .lbx-tab{padding:9px 7px;font-size:10px}
+ .artifact--books .lbx-tab[aria-pressed=true]{padding-left:9px;padding-right:9px}
+ .artifact--books .lbx-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+ .artifact--books .lbx-book-tile{padding:7px 7px 12px}
+ .artifact--books .lbx-book-title{font-size:12px}
+ .artifact--books .lbx-book-author{font-size:11px}
+ .artifact--books .lbx-create-heading{margin-top:26px}
+ .artifact--books .lbx-create-heading h3{font-size:30px}
+ .artifact--books .lbx-add-form .lbx-form-grid{grid-template-columns:1fr}
+}
+@media(max-width:390px){.artifact--books .lbx-grid{gap:9px}.artifact--books .lbx-grid-top{gap:8px}.artifact--books .lbx-edit-link{white-space:normal;max-width:95px}}
+@media(prefers-reduced-motion:reduce){.artifact--books.is-open,.artifact--books:not(.is-open),.artifact--books .lbx-page{animation:none!important}.dialog-backdrop:has(+ .artifact--books){transition:none!important}}
