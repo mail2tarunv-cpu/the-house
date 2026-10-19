@@ -173,12 +173,66 @@ function mayaImageSource(name){
   return MAYA_ROOT+name;
 }
 mayaPrepareArtwork().catch(()=>{});
-// Preload and decode motion assets once so image changes don't pause mid-stride.
-const MAYA_MOTION_IMAGES=Array.from({length:8},(_,i)=>{
-  const img=new Image();img.decoding='async';img.src=MAYA_ROOT+'walk_v17_'+i+'.webp';
-  if(img.decode)img.decode().catch(()=>{});
-  return img;
-});
+// Three clean, complete walking silhouettes. Some of the source frames contain
+// a neighboring sprite's detached boot, so discard disconnected image fragments
+// once while loading instead of showing them in either scene.
+const MAYA_WALK_ORDER=[3,7,6,7];
+const MAYA_CLEAN_FRAMES=Object.create(null);
+async function mayaCleanWalkFrame(number){
+  const name='walk_v17_'+number+'.webp';
+  const original=await mayaImg(name);
+  const c=document.createElement('canvas');
+  c.width=original.naturalWidth;c.height=original.naturalHeight;
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  if(!ctx)throw Error('No canvas');
+  ctx.drawImage(original,0,0);
+  const pixels=ctx.getImageData(0,0,c.width,c.height);
+  const data=pixels.data,w=c.width,h=c.height,n=w*h;
+  const labels=new Int32Array(n),queue=new Int32Array(n);
+  let label=0,largest=0,largestSize=0;
+  // Flood-fill the alpha-connected silhouette, then retain the largest piece.
+  // Smaller disconnected shoe pieces are artifacts from adjacent source sprites.
+  for(let seed=0;seed<n;seed++){
+    if(labels[seed]||data[seed*4+3]<=40)continue;
+    label++;
+    let front=0,back=1;queue[0]=seed;labels[seed]=label;
+    while(front<back){
+      const p=queue[front++],x=p%w,y=(p/w)|0;
+      for(let dy=-1;dy<=1;dy++){
+        const yy=y+dy;if(yy<0||yy>=h)continue;
+        for(let dx=-1;dx<=1;dx++){
+          const xx=x+dx;if(xx<0||xx>=w||(dx===0&&dy===0))continue;
+          const q=yy*w+xx;
+          if(labels[q]||data[q*4+3]<=40)continue;
+          labels[q]=label;queue[back++]=q;
+        }
+      }
+    }
+    if(back>largestSize){largestSize=back;largest=label;}
+  }
+  if(!largest)throw Error('No silhouette');
+  for(let p=0;p<n;p++){
+    if(labels[p]===largest)continue;
+    // Keep only antialiased edge pixels directly next to the main silhouette.
+    let touchesMain=false;
+    if(data[p*4+3]<=40){
+      const x=p%w,y=(p/w)|0;
+      for(let dy=-1;dy<=1&&!touchesMain;dy++){
+        const yy=y+dy;if(yy<0||yy>=h)continue;
+        for(let dx=-1;dx<=1;dx++){
+          const xx=x+dx;if(xx<0||xx>=w)continue;
+          if(labels[yy*w+xx]===largest){touchesMain=true;break;}
+        }
+      }
+    }
+    if(!touchesMain)data[p*4+3]=0;
+  }
+  ctx.putImageData(pixels,0,0);
+  MAYA_CLEAN_FRAMES[name]=c.toDataURL('image/webp',.92);
+}
+const MAYA_WALK_READY=Promise.allSettled(
+  [...new Set(MAYA_WALK_ORDER)].map(mayaCleanWalkFrame)
+);
 // Short, interruptible character choreography. One synchronized animation controller.
 const MAYA_APPROACH={
   maya:{idle:1106,walk:1110,read:1040,plant:1400},
@@ -214,7 +268,7 @@ function mayaAbort(){
   mayaTravel.last=0;
 }
 function mayaSetFrame(frame,dir='right'){
-  const src=frame.startsWith('walk_')?MAYA_ROOT+frame:mayaImageSource(frame);
+  const src=frame.startsWith('walk_')?(MAYA_CLEAN_FRAMES[frame]||MAYA_ROOT+frame):mayaImageSource(frame);
   if(mayaPose.getAttribute('src')!==src)mayaPose.setAttribute('src',src);
   mayaCharacter.dataset.sprite=frame;
   mayaPose.style.transform=dir==='left'?'scaleX(-1)':'';
@@ -231,8 +285,8 @@ function mayaTween(from,to,ms,token,walking=false){return new Promise(resolve=>{
     for(const k of ['x','bottom'])mayaStage[k]=from[k]+(to[k]-from[k])*eased;
     mayaStage.w=MAYA_UPRIGHT.w;mayaStage.h=MAYA_UPRIGHT.h;
     if(walking){
-      const step=Math.floor(now/110)%8;
-      if(step!==last){last=step;mayaSetFrame('walk_v17_'+step+'.webp',to.x<from.x?'left':'right');}
+      const step=Math.floor(now/205)%MAYA_WALK_ORDER.length;
+      if(step!==last){last=step;mayaSetFrame('walk_v17_'+MAYA_WALK_ORDER[step]+'.webp',to.x<from.x?'left':'right');}
     }
     mayaLayout();
     if(t<1)mayaMoveRaf=requestAnimationFrame(tick);
@@ -289,7 +343,7 @@ async function mayaAct(action,{instant=false}={}){
     patrol();return;
   }
   if(Math.abs(current.x-goal.x)>35){
-    if(!await mayaTween(current,goal,Math.max(240,Math.abs(current.x-goal.x)*4.2),token,true))return;
+    if(!await mayaTween(current,goal,Math.max(1150,Math.abs(current.x-goal.x)*16),token,true))return;
   }else{
     if(!await mayaTween(current,goal,230,token,false))return;
   }
@@ -310,14 +364,14 @@ function setMayaPose(name){mayaAct(name);}
 // station ONCE. No generic back-and-forth patrol and no timed interruptions.
 const MAYA_ROUTINES={
   maya:[
-    {action:'idle',hold:4700},
-    {action:'read',hold:10500},
-    {action:'plant',hold:8200}
+    {action:'idle',hold:8500},
+    {action:'read',hold:14500},
+    {action:'plant',hold:13000}
   ],
   lounge:[
-    {action:'idle',hold:5400},
-    {action:'relax',hold:11000},
-    {action:'plant',hold:9000}
+    {action:'idle',hold:8500},
+    {action:'relax',hold:15000},
+    {action:'plant',hold:13000}
   ]
 };
 let mayaRoutineTimer=0,mayaRoutineGeneration=0;
@@ -337,6 +391,8 @@ async function mayaNextRoutine(){
   // The animation is allowed to complete before the activity's dwell timer
   // begins. This prevents the next action from interrupting the current walk.
   const alreadyThere=mayaCurrent[place]===step.action&&!mayaStage.active;
+  if(step.action!=='idle')await MAYA_WALK_READY;
+  if(generation!==mayaRoutineGeneration||room!==place||document.hidden||active)return;
   await mayaAct(step.action,{instant:alreadyThere});
   if(generation!==mayaRoutineGeneration||room!==place||document.hidden||active||mayaCharacter.hidden)return;
   mayaRoutineTimer=setTimeout(()=>{
@@ -374,18 +430,19 @@ function mayaOverviewPaint(src,x){
 }
 function mayaOverviewTick(now){
   if(room||document.hidden){mayaOverviewRaf=0;return;}
-  // One walk, then a long pause. The return trip is a separate deliberate walk.
-  const cycle=(now-mayaOverviewOrigin)%32000;
+  // Tiny deliberate walks, with a long rest on each side.
+  const cycle=(now-mayaOverviewOrigin)%40000;
   let x=651,walk=false,left=false;
-  if(cycle<8500){x=651;}
-  else if(cycle<11500){walk=true;x=651+65*(cycle-8500)/3000;}
-  else if(cycle<23000){x=716;}
-  else if(cycle<26000){walk=true;left=true;x=716-65*(cycle-23000)/3000;}
+  if(cycle<9000){x=651;}
+  else if(cycle<13500){walk=true;x=651+65*(cycle-9000)/4500;}
+  else if(cycle<27000){x=716;}
+  else if(cycle<31500){walk=true;left=true;x=716-65*(cycle-27000)/4500;}
   else{x=651;}
   let src=MAYA_OVERVIEW_IDLE;
   if(walk){
-    const frame=Math.floor(now/115)%8;
-    src=MAYA_ROOT+'walk_v17_'+frame+'.webp';
+    const frame=MAYA_WALK_ORDER[Math.floor(now/205)%MAYA_WALK_ORDER.length];
+    const file='walk_v17_'+frame+'.webp';
+    src=MAYA_CLEAN_FRAMES[file]||MAYA_ROOT+file;
     // Flip around the character's horizontal center in scene coordinates.
     if(left)mayaOverviewImage.setAttribute('transform','translate('+(2*x).toFixed(1)+' 0) scale(-1 1)');
     else mayaOverviewImage.removeAttribute('transform');
