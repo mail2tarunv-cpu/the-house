@@ -7,8 +7,8 @@
 <meta name="description" content="A little place for your people. Explore the stories in your friends' rooms." />
 <title>The House — A place for your people</title>
 <link rel="preload" href="./assets/house-approved.webp" as="image" type="image/webp" />
-<link rel="stylesheet" href="./styles.css?v=10" />
-<script defer src="./app.js?v=10"></script>
+<link rel="stylesheet" href="./styles.css?v=11" />
+<script defer src="./app.js?v=11"></script>
 </head>
 <body>
 <div class="app">
@@ -35,6 +35,9 @@
         <svg id="object-map" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid meet" aria-label="Objects to explore">
           <g id="object-hits"></g>
         </svg>
+        <div id="maya-character" class="maya-character" role="img" aria-label="Maya standing in the room" hidden>
+          <img id="maya-pose" src="./assets/characters/maya/idle-fixed.webp" alt="" draggable="false" />
+        </div>
       </div>
       <nav id="mobile-rooms" class="mobile-rooms" aria-label="Enter a room" hidden>
         <button type="button" data-mobile-room="maya">Maya ↗</button>
@@ -53,6 +56,10 @@
         <button data-nav="jay" class="nav-room">Jay</button>
         <button data-nav="lounge" class="nav-room">Lounge</button>
       </div>
+      <section id="maya-actions" class="maya-actions" aria-label="Maya character actions" hidden>
+        <div class="maya-actions-name"><span class="maya-status" aria-hidden="true"></span><span>Maya</span></div>
+        <div id="maya-actions-list" class="maya-actions-list" role="group" aria-label="Choose Maya's action"></div>
+      </section>
       <div class="object-tooltip" id="object-tooltip" hidden><span class="tooltip-pin"></span><span id="tooltip-text">Explore</span><span class="tooltip-arrow">↗</span></div>
       <div class="object-discovery" id="object-discovery" hidden>
         <button type="button" id="object-discovery-trigger" class="object-discovery-trigger" aria-expanded="false" aria-controls="object-discovery-menu"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>Objects</span><span id="object-count">4</span></button>
