@@ -469,3 +469,242 @@
 .maya-overview{pointer-events:none;filter:drop-shadow(0 2px 2px rgba(45,43,31,.16));transition:opacity .24s ease}
 .maya-overview image{pointer-events:none;image-rendering:auto}
 @media(prefers-reduced-motion:reduce){.maya-overview{transition:none}}
+
+/* ── The Little Library · dedicated book experience ───────────────────────
+   Not a recolor of the media card. The popup is an actual mini reading app.
+   Original room + other object's styles are left intact. ─────────────────── */
+.stage.library-is-open #detail-image{transform:scale(1.035);transform-origin:52% 47%;transition:transform .52s cubic-bezier(.2,.8,.2,1)}
+.stage #detail-image{transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.artifact--books{
+ width:min(1080px,calc(100vw - 40px));
+ max-height:min(795px,calc(100dvh - 40px));
+ background:#f9f8f4;border:1px solid #e4e4db;
+ border-radius:17px;overflow:auto;
+ box-shadow:0 35px 110px #101f173d,0 3px 14px #101f1714;
+}
+.artifact--books .artifact-top{
+ height:47px;padding:0 15px 0 23px;
+ border-bottom:1px solid #e8e7df;background:#fffdfa;
+}
+.artifact--books .topline{color:#66816b;font-size:9px;letter-spacing:.13em}
+.artifact--books .artifact-index{color:#8b8f86;font-size:11px}
+.artifact--books .artifact-body{
+ padding:0!important;border:0!important;box-shadow:none!important;background:#f9f8f4!important;
+}
+.lbx-experience{
+ display:grid;grid-template-columns:247px minmax(0,1fr);
+ min-height:568px;isolation:isolate;color:#242d27;
+}
+.lbx-sidebar{
+ background:#274434;color:#f3f1e7;padding:33px 27px 29px;display:flex;
+ flex-direction:column;justify-content:space-between;position:relative;
+ overflow:hidden;
+}
+.lbx-sidebar:before{
+ content:"";position:absolute;width:270px;height:270px;top:-75px;right:-160px;
+ border:1px solid #b6c6aa33;border-radius:50%;box-shadow:0 0 0 37px #b6c6aa09,0 0 0 75px #b6c6aa08;
+ pointer-events:none;
+}
+.lbx-owner{position:relative;z-index:1}
+.lbx-monogram{
+ display:grid;place-items:center;width:46px;height:46px;border-radius:50%;
+ background:#d6c9a9;color:#2d4735;font:italic 29px Georgia,serif;
+ margin-bottom:60px;box-shadow:0 2px 0 #17291d44;
+}
+.lbx-overline,.lbx-eyebrow{
+ display:block;font-size:9px;font-weight:730;letter-spacing:.16em;text-transform:uppercase;
+}
+.lbx-overline{color:#b9d0b7;line-height:1.6}
+.lbx-owner h2{
+ color:#faf6e9;font:400 33px/1.13 Georgia,"Times New Roman",serif;
+ letter-spacing:-.055em;margin:13px 0 20px;
+}
+.lbx-owner h2 em{font-style:italic;color:#d2ddc2;white-space:nowrap;font-weight:400}
+.lbx-owner p{font-size:12px;line-height:1.75;color:#c3d1c2;max-width:180px}
+.lbx-side-footer{
+ position:relative;z-index:1;display:flex;align-items:center;gap:12px;
+ padding-top:19px;border-top:1px solid #c5d6c633;
+ color:#d3e0cd;font-size:10px;line-height:1.6;
+}
+.lbx-side-seal{font-size:29px;line-height:1;color:#d8b790}
+.lbx-main{min-width:0;background:#faf9f5}
+.lbx-grid-scene{padding:33px 40px 25px;display:flex;flex-direction:column;min-height:568px}
+.lbx-grid-top{display:flex;align-items:start;justify-content:space-between;gap:16px}
+.lbx-eyebrow{color:#6c8a71}
+.lbx-grid-top h3,.lbx-detail-text h3{
+ font:400 31px/1.16 Georgia,"Times New Roman",serif;letter-spacing:-.055em;
+ margin:9px 0 9px;color:#27362b;
+}
+.lbx-grid-top p{color:#80847e;font-size:12px;line-height:1.6;margin:0}
+.lbx-edit-link{
+ background:transparent;border:1px solid #cbd3c9;color:#45644e;border-radius:999px;
+ padding:10px 14px;font-size:11px;font-weight:680;white-space:nowrap;
+ transition:background .16s ease,border-color .16s ease;
+}
+.lbx-edit-link:hover{background:#eaf0e8;border-color:#9db7a2}
+.lbx-tabs{
+ display:flex;gap:4px;border-bottom:1px solid #e1e2db;
+ margin:25px 0 20px;min-width:0;overflow-x:auto;scrollbar-width:none;
+}
+.lbx-tabs::-webkit-scrollbar{display:none}
+.lbx-tab{
+ display:inline-flex;align-items:center;gap:7px;
+ white-space:nowrap;padding:10px 11px 13px;margin-bottom:-1px;
+ background:transparent;border:0;border-bottom:2px solid transparent;
+ color:#878b84;font-size:11px;font-weight:590;
+ transition:color .2s,border-color .2s;
+}
+.lbx-tab:first-child{padding-left:1px}
+.lbx-tab:hover{color:#2a4b33}
+.lbx-tab[aria-pressed=true]{border-bottom-color:#3d674e;color:#294c37;font-weight:720}
+.lbx-tab span{font-size:9px;color:#929b91;background:#ecede6;border-radius:8px;padding:1px 5px}
+.lbx-tab[aria-pressed=true] span{color:#4c7155;background:#e4eee2}
+.lbx-grid{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ column-gap:20px;row-gap:25px;align-items:start;padding-top:1px;
+}
+.lbx-book-tile{
+ padding:0;text-align:left;min-width:0;border:0;background:transparent;
+ color:#283128;display:flex;flex-direction:column;align-items:start;
+ border-radius:4px;transition:transform .24s cubic-bezier(.2,.7,.25,1);
+}
+.lbx-book-tile:hover{transform:translateY(-5px)}
+.lbx-book-tile:focus-visible{outline-offset:6px}
+.lbx-book-art{
+ position:relative;width:100%;max-width:170px;margin-bottom:12px;
+ filter:drop-shadow(3px 9px 6px #2d32252c);
+ transition:filter .24s ease;
+}
+.lbx-book-tile:hover .lbx-book-art{filter:drop-shadow(5px 13px 8px #2d322540)}
+.lbx-cover{
+ position:relative;width:100%;aspect-ratio:2/3;overflow:hidden;display:grid;
+ place-items:center;background:#aeb4a4;border-radius:2px 5px 5px 2px;
+ box-shadow:inset 4px 0 5px #17231c2e,0 1px 2px #252b2433;isolation:isolate;
+}
+.lbx-cover:before{content:"";position:absolute;z-index:4;left:0;top:0;bottom:0;width:6px;
+ background:linear-gradient(90deg,#17231c33,#ffffff25,transparent);pointer-events:none}
+.lbx-cover-fallback{display:grid;place-items:center;padding:20px 12px;text-align:center;
+ font:italic 16px/1.25 Georgia,serif;color:#f8f6ed;background:#405b49;
+ width:100%;height:100%;overflow-wrap:anywhere}
+.lbx-cover img{
+ position:absolute;z-index:2;inset:0;width:100%;height:100%;object-fit:cover;
+ background:#ede8df;display:block;
+}
+.lbx-cover img[hidden]{display:none!important}
+.lbx-book-title{font-size:12px;line-height:1.4;letter-spacing:-.015em;
+ font-weight:720;max-width:174px;color:#27362b}
+.lbx-book-author{font-size:10px;line-height:1.5;color:#8a8d86;max-width:174px;margin-top:3px}
+.lbx-empty{grid-column:1/-1;min-height:235px;display:flex;flex-direction:column;
+ align-items:center;justify-content:center;border:1px dashed #d6dcd2;border-radius:10px;color:#7c887b}
+.lbx-empty>span{font-size:28px;color:#839b86}
+.lbx-empty strong{font:400 20px Georgia,serif;margin:10px 0}
+.lbx-empty p{font-size:12px;margin:0}
+.lbx-grid-footer{
+ display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+ border-top:1px solid #e7e7df;margin-top:auto;padding-top:20px;color:#95988f;font-size:10px;
+}
+.lbx-grid-footer a{color:#6f856e;text-decoration:none}
+.lbx-grid-footer a:hover{text-decoration:underline}
+.lbx-detail{padding:28px 34px 30px;min-height:568px}
+.lbx-back{border:0;background:transparent;color:#58745f;font-size:11px;font-weight:700;
+ padding:7px 3px;display:inline-flex;align-items:center;gap:8px}
+.lbx-back span{font-size:19px;transition:transform .22s ease}
+.lbx-back:hover span{transform:translateX(-4px)}
+.lbx-detail-layout{display:grid;grid-template-columns:minmax(155px,.82fr) minmax(0,1.18fr);
+ gap:33px;align-items:start;margin-top:30px}
+.lbx-detail-cover-wrap{min-width:0;display:flex;flex-direction:column;gap:14px;max-width:252px}
+.lbx-detail-cover-wrap .lbx-cover{width:100%;max-width:248px;filter:drop-shadow(8px 16px 8px #2132243b)}
+.lbx-bookmark{font-size:9px;letter-spacing:.16em;color:#7f8b7e;text-align:center}
+.lbx-detail-text{min-width:0}
+.lbx-detail-text h3{font-size:clamp(30px,3.2vw,43px);line-height:1.12;margin:13px 0 10px}
+.lbx-author{font-size:13px;color:#7d857b;margin:0 0 24px}
+.lbx-rating{display:flex;gap:10px;align-items:center;margin-bottom:24px}
+.lbx-rating span{font-size:18px;letter-spacing:.06em;color:#ba8552;white-space:nowrap}
+.lbx-rating small,.lbx-unrated{font-size:10px;color:#9a9d96}
+.lbx-personal-note{padding:17px 0 22px;border-top:1px solid #dfdfd6;
+ border-bottom:1px solid #dfdfd6}
+.lbx-personal-note>span{font-size:9px;letter-spacing:.15em;color:#718b75;font-weight:750}
+.lbx-personal-note p{font:italic 17px/1.56 Georgia,serif;color:#3c443c;margin:13px 0 0}
+.lbx-detail-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:25px}
+.lbx-save,.lbx-recommend{min-height:39px;padding:9px 15px;border-radius:7px;
+ font-size:11px;font-weight:710;transition:background .18s,border-color .18s}
+.lbx-save{background:#30583d;color:#fffefa;border:1px solid #30583d}
+.lbx-save:hover,.lbx-save.is-saved{background:#507158}
+.lbx-recommend{background:transparent;color:#365740;border:1px solid #b9cbb9}
+.lbx-recommend:hover{background:#eaf0e8}
+.lbx-demo-caption{font-size:10px;color:#a0a39b;margin-top:11px;line-height:1.45}
+.lbx-inline-form{margin-top:21px;padding:21px;border-radius:11px;
+ background:#f0f2ea;border:1px solid #dbe2d8}
+.lbx-form-heading{display:flex;gap:8px;justify-content:space-between;align-items:start;margin-bottom:18px}
+.lbx-form-heading strong{font:400 19px Georgia,serif;color:#34513b}
+.lbx-form-heading span,.lbx-inline-form small{font-size:10px;color:#869286}
+.lbx-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lbx-inline-form label{font-size:10px;font-weight:710;color:#536956;display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.lbx-inline-form label span{font-weight:400;color:#879585}
+.lbx-inline-form input,.lbx-inline-form textarea,.lbx-inline-form select{
+ width:100%;font:12px/1.4 Inter,-apple-system,sans-serif;
+ color:#2a3c2f;border:1px solid #cbd7cc;background:#fffefa;border-radius:6px;
+ padding:10px;outline:0;resize:vertical;min-width:0;
+}
+.lbx-inline-form input:focus,.lbx-inline-form textarea:focus,.lbx-inline-form select:focus{
+ border-color:#62856a;box-shadow:0 0 0 3px #62856a18
+}
+.lbx-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.lbx-form-actions button{border:1px solid #cbd5ca;padding:10px 15px;background:transparent;
+ border-radius:6px;font-size:11px;font-weight:700;color:#527058}
+.lbx-form-actions button[type=submit]{background:#315740;border-color:#315740;color:#fff}
+.lbx-inline-form--recommend{margin-top:25px}
+@media(max-width:920px){
+ .artifact--books{width:min(850px,calc(100vw - 20px))}
+ .lbx-experience{grid-template-columns:195px minmax(0,1fr)}
+ .lbx-sidebar{padding:25px 21px}
+ .lbx-monogram{margin-bottom:38px}
+ .lbx-owner h2{font-size:28px}
+ .lbx-grid-scene{padding:27px 25px 22px}
+ .lbx-grid{gap:14px}
+ .lbx-detail{padding:22px}
+ .lbx-detail-layout{gap:20px}
+}
+@media(max-width:650px){
+ .artifact--books{width:calc(100vw - 14px);max-height:calc(100dvh - 18px);border-radius:13px}
+ .artifact--books .artifact-top{height:43px;padding:0 12px}
+ .lbx-experience{display:block;min-height:0}
+ .lbx-sidebar{padding:16px 19px;display:flex;min-height:0}
+ .lbx-monogram{width:30px;height:30px;font-size:21px;margin:0 0 0 auto;position:absolute;right:18px;top:18px}
+ .lbx-owner h2{font-size:24px;line-height:1.12;margin:6px 0}
+ .lbx-owner h2 br{display:none}
+ .lbx-owner h2 em{margin-left:5px}
+ .lbx-owner p{margin:4px 0 0;max-width:none;font-size:10px}
+ .lbx-side-footer{display:none}
+ .lbx-grid-scene{min-height:430px;padding:21px 20px}
+ .lbx-grid-top h3{font-size:25px}
+ .lbx-grid-top p{font-size:11px}
+ .lbx-edit-link{font-size:10px;padding:8px 10px}
+ .lbx-tabs{margin:17px 0}
+ .lbx-tab{padding:9px 8px;font-size:10px}
+ .lbx-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 17px}
+ .lbx-book-art{max-width:180px}
+ .lbx-book-title{font-size:11px}
+ .lbx-detail{padding:19px 18px;min-height:440px}
+ .lbx-detail-layout{grid-template-columns:minmax(105px,.8fr) minmax(0,1.2fr);gap:14px;margin-top:20px}
+ .lbx-detail-text h3{font-size:25px}
+ .lbx-author{font-size:11px;margin-bottom:12px}
+ .lbx-rating{margin-bottom:10px;gap:6px;flex-wrap:wrap}
+ .lbx-rating span{font-size:13px}
+ .lbx-personal-note{padding:10px 0}
+ .lbx-personal-note p{font-size:13px;margin-top:8px}
+ .lbx-detail-actions{margin-top:14px}
+ .lbx-save,.lbx-recommend{min-height:34px;font-size:10px;padding:8px 10px}
+ .lbx-form-grid{grid-template-columns:1fr}
+ .lbx-grid-footer{margin-top:28px}
+}
+@media(max-width:390px){
+ .lbx-detail-layout{grid-template-columns:1fr;gap:21px}
+ .lbx-detail-cover-wrap{max-width:158px;margin:0 auto}
+ .lbx-detail-text h3{font-size:27px}
+ .lbx-grid-top{align-items:start}
+ .lbx-grid-top h3{font-size:22px}
+}
+@media(prefers-reduced-motion:reduce){
+ .lbx-book-tile,.lbx-book-art,.lbx-back span,.stage #detail-image{transition:none!important}
+}

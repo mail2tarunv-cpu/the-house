@@ -43,6 +43,7 @@ const INITIAL={
 const key='the-house-demo-v4';
 function load(){try{const legacy=JSON.parse(localStorage.getItem(key)||'null');if(legacy?.version===4&&legacy.data){const v=legacy.data;const out=structuredClone(INITIAL);for(const k of Object.keys(out))if(v[k])out[k]=v[k];return out;}}catch{}return structuredClone(INITIAL);}
 const data=load();
+data.savedBooks??=[];data.bookRecommendations??=[];
 function store(){try{localStorage.setItem(key,JSON.stringify({version:4,data}));}catch{toast('Storage is full. Try a smaller image.');}}
 const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const today=()=>new Date().toLocaleDateString('en-CA');
@@ -576,6 +577,75 @@ function coverType(title,index=0){
  const words=String(title||'Untitled').replace(/\s+[—–]\s+.*$/,'');
  return `<div class="edition-cover edition-cover--${palette[index%palette.length]}"><div class="edition-grain"></div><span class="edition-top">THE HOUSE · PERSONAL COLLECTION</span><span class="edition-sun" aria-hidden="true"></span><strong>${safe(words)}</strong><span class="edition-foot">A LITTLE STORY WORTH KEEPING</span></div>`;
 }
+
+const BOOK_DEMO_META={"the creative act":{"author":"Rick Rubin","isbn":"9780593652886","rating":5},"crying in h mart":{"author":"Michelle Zauner","isbn":"9780525657743","rating":5},"tomorrow, and tomorrow, and tomorrow":{"author":"Gabrielle Zevin","isbn":"9780593321201","rating":4}};
+let bookMode='grid',bookCompose='';
+function libraryInfo(book){
+  const meta=BOOK_DEMO_META[String(book.name||'').trim().toLowerCase()]||{};
+  const isbn=String(book.isbn||meta.isbn||'').replace(/[\s-]/g,'');
+  return {author:book.author||meta.author||'',isbn:/^(?:\d{10}|\d{13})$/.test(isbn)?isbn:'',rating:Number(book.rating??meta.rating??0)};
+}
+function libraryCover(book,size='M'){
+  const info=libraryInfo(book),n=safe(book.name||'Untitled');
+  const src=info.isbn?`https://covers.openlibrary.org/b/isbn/${info.isbn}-${size}.jpg?default=false`:'';
+  return `<div class="lbx-cover">${src?`<img data-library-cover loading="lazy" decoding="async" alt="Cover of ${n}" src="${src}">`:''}<span class="lbx-cover-fallback">${n}</span></div>`;
+}
+function libraryAddForm(){
+  return `<form id="library-add-form" class="lbx-inline-form">
+    <div class="lbx-form-heading"><strong>Add to Maya's shelf</strong><span>Prototype editor · saved on this device</span></div>
+    <div class="lbx-form-grid">
+      <label>Book title<input name="title" required maxlength="100" placeholder="Book title" autocomplete="off"></label>
+      <label>Author<input name="author" maxlength="90" placeholder="Author's name"></label>
+      <label>ISBN <span>(for the real cover)</span><input name="isbn" maxlength="25" placeholder="978..."></label>
+      <label>Shelf<select name="status"><option value="reading">Reading</option><option value="favorites">Favorites</option><option value="tbr">Want to read</option></select></label>
+    </div>
+    <label>Why does it belong here?<textarea name="note" rows="2" maxlength="220" placeholder="A short personal thought"></textarea></label>
+    <div class="lbx-form-actions"><button type="button" data-book-cancel>Cancel</button><button type="submit">Add book <span aria-hidden="true">↗</span></button></div>
+  </form>`;
+}
+function libraryRecommendForm(book){
+  return `<form id="library-recommend-form" class="lbx-inline-form lbx-inline-form--recommend">
+    <div class="lbx-form-heading"><strong>Leave Maya a recommendation</strong><span>Inspired by ${safe(book.name)}?</span></div>
+    <label>Book to recommend<input name="title" maxlength="100" required placeholder="A book she'd love"></label>
+    <label>Your little note<textarea name="note" rows="2" maxlength="220" placeholder="Why you thought of her"></textarea></label>
+    <div class="lbx-form-actions"><button type="button" data-book-cancel>Cancel</button><button type="submit">Save recommendation <span aria-hidden="true">↗</span></button></div>
+    <small>Demo only — saved here, not sent to another person.</small>
+  </form>`;
+}
+function libraryExperience(place){
+ const all=itemsFor('books',place),statuses=[['all','All books'],['reading','Reading'],['favorites','Favorites'],['tbr','Want to read']];
+ const counts={all:all.length,reading:all.filter(x=>x.status==='reading').length,favorites:all.filter(x=>x.status==='favorites').length,tbr:all.filter(x=>x.status==='tbr').length};
+ const entries=filter==='all'?all:all.filter(x=>x.status===filter);
+ const chosen=entries[Math.min(selected,Math.max(0,entries.length-1))]||null;
+ const sidebar=`<aside class="lbx-sidebar"><div class="lbx-owner"><span class="lbx-monogram">m.</span><span class="lbx-overline">A ROOM FULL OF STORIES</span><h2>Maya's<br><em>little library.</em></h2><p>A few pages of her personality, right here on the shelf.</p></div><div class="lbx-side-footer"><span class="lbx-side-seal" aria-hidden="true">✳</span><span>${all.length} book${all.length===1?'':'s'} on the shelf<br>Handpicked by Maya</span></div></aside>`;
+ let content='';
+ if(bookMode==='detail'&&chosen){
+   const info=libraryInfo(chosen),rating=info.rating>=1&&info.rating<=5?`<div class="lbx-rating"><span aria-label="${info.rating} out of 5 stars">${'★'.repeat(info.rating)}${'☆'.repeat(5-info.rating)}</span><small>Maya's rating</small></div>`:'<span class="lbx-unrated">Maya hasn’t rated this yet</span>';
+   const saved=(data.savedBooks||[]).some(x=>(info.isbn&&x.isbn===info.isbn)||(!info.isbn&&x.name===chosen.name));
+   const index=entries.indexOf(chosen);
+   content=`<div class="lbx-detail" key="book-${index}">
+     <button type="button" class="lbx-back" data-book-back><span aria-hidden="true">←</span> Back to her shelf</button>
+     <div class="lbx-detail-layout"><div class="lbx-detail-cover-wrap">${libraryCover(chosen,'L')}<span class="lbx-bookmark">FROM MAYA'S SHELF</span></div>
+     <div class="lbx-detail-text"><span class="lbx-eyebrow">${chosen.status==='reading'?'CURRENTLY READING':chosen.status==='favorites'?'ONE OF HER FAVORITES':'WANT TO READ'}</span>
+       <h3>${safe(chosen.name)}</h3><p class="lbx-author">by ${safe(info.author||'Author not added')}</p>${rating}
+       <div class="lbx-personal-note"><span>MAYA'S NOTE</span><p>${safe(chosen.description||'Maya has not left a note on this book yet.')}</p></div>
+       <div class="lbx-detail-actions"><button type="button" class="lbx-save ${saved?'is-saved':''}" data-book-save>${saved?'✓ Saved to my list':'+ Save to my list'}</button><button type="button" class="lbx-recommend" data-book-recommend>Recommend a book ↗</button></div>
+       <p class="lbx-demo-caption">Your reading list is saved on this device.</p>
+     </div></div>
+     ${bookCompose==='recommend'?libraryRecommendForm(chosen):''}
+     </div>`;
+ }else{
+   const grid=entries.length?entries.map((x,i)=>{const info=libraryInfo(x);return `<button type="button" class="lbx-book-tile" data-book-open="${i}" aria-label="Open ${safe(x.name)} by ${safe(info.author||'unknown author')}">
+     <span class="lbx-book-art">${libraryCover(x)}</span><span class="lbx-book-title">${safe(x.name)}</span><span class="lbx-book-author">${safe(info.author||'Author not added')}</span></button>`}).join(''):`<div class="lbx-empty"><span aria-hidden="true">✳</span><strong>Nothing on this shelf yet.</strong><p>Maybe Maya will add something soon.</p></div>`;
+   const tabs=statuses.map(([key,label])=>`<button type="button" class="lbx-tab" data-book-filter="${key}" aria-pressed="${filter===key}">${label}<span>${counts[key]}</span></button>`).join('');
+   content=`<div class="lbx-grid-scene"><div class="lbx-grid-top"><div><span class="lbx-eyebrow">THE BOOKS THAT MAKE HER, HER</span><h3>Between the covers.</h3><p>Pick a book to see what Maya thinks.</p></div><button type="button" class="lbx-edit-link" data-book-add>+ Add a book</button></div>
+   <nav class="lbx-tabs" aria-label="Maya's bookshelves">${tabs}</nav><div class="lbx-grid" aria-label="Books in ${safe(filter)}">${grid}</div>
+   ${bookCompose==='add'?libraryAddForm():''}
+   <footer class="lbx-grid-footer"><span>Books make good conversation starters.</span><a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer">Covers via Open Library ↗</a></footer></div>`;
+ }
+ return `<div class="lbx-experience">${sidebar}<section class="lbx-main">${content}</section></div>`;
+}
+
 function media(kind,id){
  const entries=itemsFor(kind,id);
  const settings=kind==='books'?[['reading','Reading'],['tbr','To read'],['favorites','Favorites']]:kind==='movies'?[['favorites','Favorites'],['watchlist','To watch'],['recent','Recently watched']]:[['all','All records']];
@@ -612,13 +682,15 @@ function gallery(){const m=memories[selected]||memories[0];
 function tv(){const first=(data.movies||[]).find(x=>x.room==='jay');
  return `<div class="screening-experience"><section class="screening-stage"><span class="screening-corner">THE HOUSE PRESENTS</span><div class="screening-sun"></div><span class="screening-now">NOW SHOWING</span><h2>Movie<br>night<span>.</span></h2><span class="screening-foot">A SHARED WATCHLIST · NO TICKETS REQUIRED</span></section><section class="screening-details"><span class="collection-kicker">THE SHARED LOUNGE</span><h2>What's on tonight?</h2><p>${safe(first?.name||'A movie night with friends')}</p><blockquote>${safe(first?.description||'Something worth watching together.')}</blockquote><button type="button" class="screening-action" data-action="go-movies">Browse Jay’s film wall <span>↗</span></button></section></div>`;
 }
-function artifactContent(){if(!active)return '';const {kind,place}=active;return ['books','movies','vinyl'].includes(kind)?media(kind,place):kind==='daily'?moment(place):kind==='notes'?notes(place):kind==='update'?update(place):kind==='gallery'?gallery():kind==='tv'?tv():'';}
+function artifactContent(){if(!active)return '';const {kind,place}=active;return kind==='books'?libraryExperience(place):['movies','vinyl'].includes(kind)?media(kind,place):kind==='daily'?moment(place):kind==='notes'?notes(place):kind==='update'?update(place):kind==='gallery'?gallery():kind==='tv'?tv():'';}
 function renderArtifact(){body.innerHTML=artifactContent();modal.className='artifact artifact--'+(active?.kind||'unknown')+(modal.classList.contains('is-open')?' is-open':'');modal.dataset.scene=active?.kind||'';const heading=headings[active.kind]||'A little discovery';$('#artifact-kicker').textContent=active.place==='lounge'?'THE LOUNGE':ROOMS[active.place]?.name||'A ROOM';$('#artifact-index').textContent=heading;}
 let closeTimer=null,dialogSequence=0;
 function openArtifact(kind,place,origin){
  if(!active)lastFocus=document.activeElement;
+ $('#stage').classList.remove('library-is-open');
  ++dialogSequence;clearTimeout(closeTimer);
- active={kind,place};mayaStopRoutine();mayaAbort();filter=kind==='books'?'reading':kind==='movies'?'favorites':'all';selected=0;vinylPlaying=false;pendingPhoto=null;
+ active={kind,place};mayaStopRoutine();mayaAbort();filter=kind==='books'?'all':kind==='movies'?'favorites':'all';selected=0;bookMode='grid';bookCompose='';vinylPlaying=false;pendingPhoto=null;
+ $('#stage').classList.toggle('library-is-open',kind==='books');
  renderArtifact();hideObjectTooltip();objectMenu.hidden=true;
  const source=origin?.getBoundingClientRect?.();
  if(source){const cx=source.left+source.width/2,cy=source.top+source.height/2;
@@ -628,7 +700,7 @@ function openArtifact(kind,place,origin){
  modal.hidden=false;backdrop.hidden=false;document.body.style.overflow='hidden';
  requestAnimationFrame(()=>{modal.classList.add('is-open');backdrop.classList.add('is-open');$('#artifact-close').focus({preventScroll:true});});
 }
-function closeArtifact(){if(!active)return;active=null;
+function closeArtifact(){if(!active)return;active=null;$('#stage').classList.remove('library-is-open');
  if(room&&MAYA_POSES[room]&&!mayaCharacter.hidden)mayaNextRoutine();
  const serial=++dialogSequence;modal.classList.remove('is-open');backdrop.classList.remove('is-open');document.body.style.overflow='';
  closeTimer=setTimeout(()=>{if(serial!==dialogSequence)return;modal.hidden=true;backdrop.hidden=true;lastFocus?.focus?.({preventScroll:true});},reduce.matches?0:400);
@@ -640,12 +712,51 @@ if(k==='daily')return `<form class="form-area" id="compose-form"><label class="f
 if(k==='notes')return `<form class="form-area" id="compose-form"><label class="form-label" for="note-from">From</label><input class="field" id="note-from" maxlength="35" value="You" required/><label class="form-label" for="note-message">Your letter</label><textarea class="field textarea" id="note-message" maxlength="350" required placeholder="Something you wanted to say…"></textarea><button class="primary-action" type="submit">Leave the letter ↗</button></form>`;
 if(k==='update')return `<form class="form-area" id="compose-form"><label class="form-label" for="update-message">Life lately</label><textarea class="field textarea" id="update-message" maxlength="300" required placeholder="What happened this week?">${safe(data.updates[active.place]||'')}</textarea><button class="primary-action" type="submit">Pin this update ↗</button></form>`;return '';}
 function playSettle(){const stage=body.firstElementChild;if(!stage||reduce.matches)return;stage.classList.remove('is-changing');void stage.offsetWidth;stage.classList.add('is-changing');}
-body.addEventListener('click',e=>{const action=e.target.closest('[data-action]');if(action){const a=action.dataset.action;if(a==='compose'){const box=$('#compose-area');box.hidden=!box.hidden;if(!box.hidden){box.innerHTML=composition();box.querySelector('input,textarea')?.focus();}}else if(a==='go-movies')openArtifact('movies','jay');else if(a==='go-daily')openArtifact('daily','lounge');return;}
+body.addEventListener('error',e=>{if(e.target instanceof HTMLImageElement&&e.target.hasAttribute('data-library-cover'))e.target.hidden=true;},true);
+body.addEventListener('click',e=>{
+if(active?.kind==='books'){
+  const tab=e.target.closest('[data-book-filter]');
+  if(tab){filter=tab.dataset.bookFilter;selected=0;bookMode='grid';bookCompose='';renderArtifact();return;}
+  const tile=e.target.closest('[data-book-open]');
+  if(tile){selected=Number(tile.dataset.bookOpen)||0;bookMode='detail';bookCompose='';renderArtifact();playSettle();return;}
+  if(e.target.closest('[data-book-back]')){bookMode='grid';bookCompose='';renderArtifact();playSettle();return;}
+  if(e.target.closest('[data-book-add]')){bookCompose=bookCompose==='add'?'':'add';renderArtifact();if(bookCompose)body.querySelector('#library-add-form input')?.focus();return;}
+  if(e.target.closest('[data-book-recommend]')){bookCompose=bookCompose==='recommend'?'':'recommend';renderArtifact();if(bookCompose)body.querySelector('#library-recommend-form input')?.focus();return;}
+  if(e.target.closest('[data-book-cancel]')){bookCompose='';renderArtifact();return;}
+  if(e.target.closest('[data-book-save]')){
+    const entries=itemsFor('books',active.place).filter(x=>filter==='all'||x.status===filter);
+    const chosen=entries[Math.min(selected,entries.length-1)];if(!chosen)return;
+    const meta=libraryInfo(chosen);
+    data.savedBooks??=[];
+    const index=data.savedBooks.findIndex(x=>meta.isbn?x.isbn===meta.isbn:x.name===chosen.name);
+    if(index>=0){data.savedBooks.splice(index,1);toast('Removed from your reading list');}
+    else{data.savedBooks.push({name:chosen.name,author:meta.author,isbn:meta.isbn,savedAt:Date.now()});toast('Saved to your reading list');}
+    store();renderArtifact();return;
+  }
+}
+const action=e.target.closest('[data-action]');if(action){const a=action.dataset.action;if(a==='compose'){const box=$('#compose-area');box.hidden=!box.hidden;if(!box.hidden){box.innerHTML=composition();box.querySelector('input,textarea')?.focus();}}else if(a==='go-movies')openArtifact('movies','jay');else if(a==='go-daily')openArtifact('daily','lounge');return;}
 const filt=e.target.closest('[data-filter]');if(filt){filter=filt.dataset.filter;selected=0;renderArtifact();playSettle();return;}
 const pick=e.target.closest('[data-pick],[data-select]');if(pick){selected=Number(pick.dataset.pick??pick.dataset.select)||0;renderArtifact();playSettle();return;}
 if(e.target.closest('#vinyl-disc')){vinylPlaying=!vinylPlaying;$('#vinyl-disc').classList.toggle('is-playing',vinylPlaying);$('#vinyl-disc').setAttribute('aria-pressed',String(vinylPlaying));const prompt=body.querySelector('.vinyl-prompt');if(prompt)prompt.textContent=vinylPlaying?'NOW SPINNING':'PRESS THE RECORD TO SPIN';return;}
 });
-body.addEventListener('submit',async e=>{if(e.target.id!=='compose-form'||!active)return;e.preventDefault();const {kind,place}=active;let message='Saved to this room';
+body.addEventListener('submit',async e=>{
+if(active?.kind==='books'&&e.target.id==='library-add-form'){
+ e.preventDefault();const f=new FormData(e.target),name=String(f.get('title')||'').trim();
+ if(!name)return;
+ const isbn=String(f.get('isbn')||'').replace(/[\s-]/g,'');
+ if(isbn&&!/^(?:\d{10}|\d{13})$/.test(isbn)){toast('Use a valid 10- or 13-digit ISBN');return;}
+ const status=String(f.get('status')||'reading');
+ data.books.push({name,author:String(f.get('author')||'').trim(),isbn,status,room:active.place,description:String(f.get('note')||'').trim()});
+ store();filter=status;selected=0;bookMode='grid';bookCompose='';renderArtifact();toast('Added to Maya’s library');return;
+}
+if(active?.kind==='books'&&e.target.id==='library-recommend-form'){
+ e.preventDefault();const f=new FormData(e.target),name=String(f.get('title')||'').trim();
+ if(!name)return;
+ data.bookRecommendations??=[];
+ data.bookRecommendations.push({name,note:String(f.get('note')||'').trim(),room:active.place,createdAt:Date.now()});
+ store();bookCompose='';renderArtifact();toast('Recommendation saved on this device');return;
+}
+if(e.target.id!=='compose-form'||!active)return;e.preventDefault();const {kind,place}=active;let message='Saved to this room';
 if(['books','movies','vinyl'].includes(kind)){const f=e.target;const name=f.elements.title.value.trim();if(!name)return;data[kind].push({name,description:f.elements.note.value.trim(),status:f.elements.status.value,room:place,id:Date.now().toString()});filter=f.elements.status.value;selected=0;message='Added to the collection';}
 if(kind==='notes'){const name=$('#note-from').value.trim(),text=$('#note-message').value.trim();if(!text)return;data.notes.push({from:name||'You',text,room:place,date:'Just now'});message='Letter left on the desk';}
 if(kind==='update'){data.updates[place]=$('#update-message').value.trim();message='Latest update pinned';}
