@@ -27,12 +27,16 @@
         <path class="room-hit" data-room="jay" role="button" tabindex="0" aria-label="Enter Jay's music and movie room" d="M840 70 L1528 194 L1528 439 L835 438 Z"><title>Jay's room</title></path>
         <path class="room-hit" data-room="lounge" role="button" tabindex="0" aria-label="Enter the shared lounge" d="M225 457 L1450 450 L1450 767 L225 779 Z"><title>Shared lounge</title></path>
       </g>
-      <g id="ambient-actors" pointer-events="none"></g>
+      <g id="ambient-actors" pointer-events="none" hidden></g>
       <g id="room-objects" hidden></g>
-      <g id="character-overlays"></g>
+      <g id="character-overlays" hidden></g>
+    </svg>
+    <svg id="detail-scene" class="detail-scene" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice" aria-label="Room close-up" hidden>
+      <image id="detail-image" x="0" y="0" width="1672" height="941" preserveAspectRatio="xMidYMid slice" href="" />
+      <g id="detail-hotspots"></g>
     </svg>
     <div class="scene-overlay" id="scene-overlay"><span class="asterisk">✳</span> CLICK A ROOM TO EXPLORE</div>
-    <div class="scene-caption" id="scene-caption" hidden>✳ Tap an object or character · Click the floor to move</div>
+    <div class="scene-caption" id="scene-caption" hidden>✳ Explore the objects in this room</div>
   </div>
   <nav class="room-tabs" aria-label="Explore rooms">
     <button class="room-button" data-goto="maya"><span class="nav-symbol green">01</span><span><strong>Maya's room</strong><small>Books, little thoughts, letters</small></span><span class="arr">↗</span></button>

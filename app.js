@@ -8,6 +8,34 @@
   const drawer = $('#drawer');
   const content = $('#drawer-content');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const detailScene = $('#detail-scene');
+  const detailImage = $('#detail-image');
+  const detailHotspots = $('#detail-hotspots');
+  const ROOM_IMAGES = {maya:'./assets/rooms/maya.webp',jay:'./assets/rooms/jay.webp',lounge:'./assets/rooms/lounge.webp'};
+  const DETAIL_HOTSPOTS = {
+    maya:[
+      {id:'books',name:'Book wall',x:785,y:495},
+      {id:'daily',name:'Daily photo',x:1417,y:584},
+      {id:'notes',name:'Visitor notes',x:1440,y:418},
+      {id:'update',name:'Life lately',x:1279,y:622}
+    ],
+    jay:[
+      {id:'movies',name:'Favorite movies',x:570,y:366},
+      {id:'vinyl',name:'Vinyl collection',x:520,y:600},
+      {id:'daily',name:'Daily photo',x:1463,y:687},
+      {id:'notes',name:'Visitor notes',x:1411,y:498},
+      {id:'update',name:'Life lately',x:1290,y:703}
+    ],
+    lounge:[
+      {id:'gallery',name:'Memory wall',x:740,y:330},
+      {id:'tv',name:'Watch together',x:172,y:468},
+      {id:'daily',name:'Daily photo',x:640,y:455},
+      {id:'notes',name:'Visitor notes',x:624,y:668},
+      {id:'lounge',name:"Who's here?",x:905,y:546},
+      {id:'update',name:'Life updates',x:1305,y:421}
+    ]
+  };
+  Object.values(ROOM_IMAGES).forEach(src=>{const preload=new Image();preload.src=src;});
   const NS = 'http://www.w3.org/2000/svg';
   const ORIGINAL = { x:0, y:0, w:1672, h:941 };
   const PEOPLE = {
@@ -49,7 +77,7 @@
   function targetView(id){if(!id)return {...ORIGINAL};const r=ROOMS[id];const rect=scene.getBoundingClientRect();const ratio=Math.max(.7,rect.width/Math.max(1,rect.height));let w=r.w,h=w/ratio;const maxH=1100;if(h>maxH){h=maxH;w=h*ratio;}return {x:r.cx-w/2,y:r.cy-h/2,w,h};}
   function cameraTo(room){const target=targetView(room),from={...view},token=++animationSerial,start=performance.now(),duration=reduce.matches?0:900;function tick(now){if(token!==animationSerial)return;const t=duration?Math.min(1,(now-start)/duration):1;const a=ease(t);view={x:lerp(from.x,target.x,a),y:lerp(from.y,target.y,a),w:lerp(from.w,target.w,a),h:lerp(from.h,target.h,a)};scene.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);if(t<1)requestAnimationFrame(tick);}requestAnimationFrame(tick);}
   const cls=(el,cl,on)=>el.classList.toggle(cl,Boolean(on));
-  function drawActors(){actorsLayer.replaceChildren();ambientLayer.replaceChildren();const ids=currentRoom==='lounge'?['you',...Object.keys(data.loungeMembers).filter(id=>data.loungeMembers[id])]:currentRoom?[ROOMS[currentRoom].actor]:['maya','jay','you'];ids.forEach(id=>{
+  function drawActors(){actorsLayer.replaceChildren();ambientLayer.replaceChildren();return;const ids=currentRoom==='lounge'?['you',...Object.keys(data.loungeMembers).filter(id=>data.loungeMembers[id])]:currentRoom?[ROOMS[currentRoom].actor]:['maya','jay','you'];ids.forEach(id=>{
     const p=PEOPLE[id],s=avatarState[id],g=add('g',{'class':'character-button','role':'button','tabindex':'0','aria-label':`${p.name}, ${data.presence[id]?'online':'offline'}`},actorsLayer);
     const pos=add('g',{'transform':`translate(${s.x-38} ${s.y-110})`},g);g.dataset.person=id;
     add('ellipse',{cx:38,cy:104,rx:24,ry:6,fill:'#332d2922'},pos);
@@ -70,15 +98,41 @@
       if(s.frame!==frame){s.frame=frame;changed=true;}
     }if(changed)updateActorPositions();requestAnimationFrame(animate);
   }
-  function drawHotspots(){objectsLayer.replaceChildren();if(!currentRoom){objectsLayer.hidden=true;return;}objectsLayer.hidden=false;for(const item of ROOMS[currentRoom].objects){
+  function drawHotspots(){objectsLayer.replaceChildren();objectsLayer.hidden=true;return;if(!currentRoom){objectsLayer.hidden=true;return;}objectsLayer.hidden=false;for(const item of ROOMS[currentRoom].objects){
     const g=add('g',{role:'button',tabindex:'0','aria-label':`Explore ${item.name}`},objectsLayer);
     add('circle',{cx:item.x,cy:item.y,r:30,class:'marker-glow'},g);
     add('circle',{cx:item.x,cy:item.y,r:15,class:'marker-circle'},g);
     const t=add('text',{x:item.x,y:item.y-28,'text-anchor':'middle',class:'marker-label'},g);t.textContent=item.name;
     const click=e=>{e.stopPropagation();openPanel(item.id,currentRoom);};g.addEventListener('click',click);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();click(e);}});
   }}
-  function enter(id){if(!ROOMS[id])return;currentRoom=id;if(id==='lounge'){const pos={you:[840,692],maya:[710,692],jay:[985,692]};for(const [key,[x,y]] of Object.entries(pos)){avatarState[key].x=x;avatarState[key].y=y;avatarState[key].targetX=x;}}else{const key=ROOMS[id].actor;avatarState[key].x=PEOPLE[key].x;avatarState[key].y=PEOPLE[key].y;avatarState[key].targetX=PEOPLE[key].x;}closePanel();const r=ROOMS[id];$('#scene-kicker').textContent=r.kicker;$('#scene-title').textContent=r.name;$('#scene-subtitle').textContent=r.description;$('#return-home').hidden=false;$('#room-targets').hidden=true;$('#scene-overlay').hidden=true;$('#scene-caption').hidden=false;buttons.forEach(b=>b.setAttribute('aria-current',b.dataset.goto===id?'true':'false'));$('#footer-label').textContent='INSIDE / '+r.name.toUpperCase();drawActors();drawHotspots();cameraTo(id);}
-  function home(){currentRoom=null;for(const [key,p] of Object.entries(PEOPLE)){avatarState[key].x=p.x;avatarState[key].y=p.y;avatarState[key].targetX=p.x;}closePanel();$('#scene-kicker').textContent='COME ON IN';$('#scene-title').textContent='Different rooms. One little world.';$('#scene-subtitle').textContent="Step into a friend's space, leave a note, or see what everyone is up to.";$('#return-home').hidden=true;$('#room-targets').hidden=false;$('#scene-overlay').hidden=false;$('#scene-caption').hidden=true;buttons.forEach(b=>b.removeAttribute('aria-current'));$('#footer-label').textContent='HOUSE OVERVIEW · 01 / 01';drawActors();drawHotspots();cameraTo(null);}
+  let detailSerial=0,detailTimer=null;
+  function showDetail(id){
+    const serial=++detailSerial;
+    clearTimeout(detailTimer);
+    detailScene.classList.remove('is-visible');
+    detailScene.hidden=false;
+    detailImage.setAttribute('href',ROOM_IMAGES[id]);
+    detailScene.setAttribute('aria-label',ROOMS[id].name+', interactive close-up');
+    detailHotspots.replaceChildren();
+    for(const spot of DETAIL_HOTSPOTS[id]){
+      const g=add('g',{class:'detail-hotspot',role:'button',tabindex:'0','aria-label':'Explore '+spot.name},detailHotspots);
+      add('circle',{cx:spot.x,cy:spot.y,r:61,class:'detail-tap-target'},g);
+      add('circle',{cx:spot.x,cy:spot.y,r:11,class:'detail-dot'},g);
+      const label=add('text',{x:spot.x,y:spot.y-27,'text-anchor':'middle',class:'detail-label'},g);
+      label.textContent=spot.name;
+      const select=e=>{e.stopPropagation();openPanel(spot.id,id)};
+      g.addEventListener('click',select);
+      g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e)}});
+    }
+    detailTimer=setTimeout(()=>{if(serial!==detailSerial||currentRoom!==id)return;detailScene.classList.add('is-visible')},reduce.matches?0:390);
+  }
+  function hideDetail(){
+    ++detailSerial;clearTimeout(detailTimer);
+    detailScene.classList.remove('is-visible');
+    detailTimer=setTimeout(()=>{if(!currentRoom)detailScene.hidden=true},reduce.matches?0:460);
+  }
+  function enter(id){if(!ROOMS[id])return;currentRoom=id;if(id==='lounge'){const pos={you:[840,692],maya:[710,692],jay:[985,692]};for(const [key,[x,y]] of Object.entries(pos)){avatarState[key].x=x;avatarState[key].y=y;avatarState[key].targetX=x;}}else{const key=ROOMS[id].actor;avatarState[key].x=PEOPLE[key].x;avatarState[key].y=PEOPLE[key].y;avatarState[key].targetX=PEOPLE[key].x;}closePanel();const r=ROOMS[id];$('#scene-kicker').textContent=r.kicker;$('#scene-title').textContent=r.name;$('#scene-subtitle').textContent=r.description;$('#return-home').hidden=false;$('#room-targets').hidden=true;$('#scene-overlay').hidden=true;$('#scene-caption').hidden=false;buttons.forEach(b=>b.setAttribute('aria-current',b.dataset.goto===id?'true':'false'));$('#footer-label').textContent='INSIDE / '+r.name.toUpperCase();drawActors();drawHotspots();cameraTo(id);showDetail(id);}
+  function home(){currentRoom=null;for(const [key,p] of Object.entries(PEOPLE)){avatarState[key].x=p.x;avatarState[key].y=p.y;avatarState[key].targetX=p.x;}closePanel();$('#scene-kicker').textContent='COME ON IN';$('#scene-title').textContent='Different rooms. One little world.';$('#scene-subtitle').textContent="Step into a friend's space, leave a note, or see what everyone is up to.";$('#return-home').hidden=true;$('#room-targets').hidden=false;$('#scene-overlay').hidden=false;$('#scene-caption').hidden=true;buttons.forEach(b=>b.removeAttribute('aria-current'));$('#footer-label').textContent='HOUSE OVERVIEW · 01 / 01';drawActors();drawHotspots();hideDetail();cameraTo(null);}
   let toastTimer;
   function toast(message){const el=$('#toast');el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,2800);}
   const title=(h,p='')=>`<h2>${escape(h)}</h2>${p?`<p class="section-info">${escape(p)}</p>`:''}`;
@@ -126,7 +180,7 @@
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(panel)closePanel();else if(currentRoom)home();}});
   document.querySelectorAll('.room-hit').forEach(el=>{el.addEventListener('click',()=>enter(el.dataset.room));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter(el.dataset.room);}});});
   buttons.forEach(b=>b.addEventListener('click',()=>{if(currentRoom===b.dataset.goto)home();else enter(b.dataset.goto);}));
-  scene.addEventListener('click',e=>{if(!currentRoom||panel||e.target.closest('g[role=button]'))return;const pt=scene.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const mat=scene.getScreenCTM();if(!mat)return;const local=pt.matrixTransform(mat.inverse());const r=ROOMS[currentRoom],a=avatarState[r.actor],walk=r.walk;
+  scene.addEventListener('click',e=>{return;if(!currentRoom||panel||e.target.closest('g[role=button]'))return;const pt=scene.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const mat=scene.getScreenCTM();if(!mat)return;const local=pt.matrixTransform(mat.inverse());const r=ROOMS[currentRoom],a=avatarState[r.actor],walk=r.walk;
     // Keep movement constrained to a believable strip of visible floor, away from large furniture.
     if(Math.abs(local.y-walk.y)>165)return;
     a.targetX=Math.max(walk.lo,Math.min(walk.hi,local.x));
