@@ -7,8 +7,8 @@
 <meta name="description" content="A little place for your people. Explore the stories in your friends' rooms." />
 <title>The House — A place for your people</title>
 <link rel="preload" href="./assets/house-approved.webp" as="image" type="image/webp" />
-<link rel="stylesheet" href="./styles.css?v=17" />
-<script defer src="./app.js?v=17"></script>
+<link rel="stylesheet" href="./styles.css?v=18" />
+<script defer src="./app.js?v=18"></script>
 </head>
 <body>
 <div class="app">
@@ -24,6 +24,10 @@
     <div id="stage" class="stage" aria-label="Explore The House">
       <svg id="house-scene" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid meet" aria-label="Cutaway illustration of a house with three rooms">
         <image width="1672" height="941" href="./assets/house-approved.webp" />
+        <g id="maya-overview" class="maya-overview" aria-label="Maya in her room" pointer-events="none">
+          <image id="maya-overview-sprite" href="./assets/characters/maya/idle-fixed.webp"
+            x="605" y="300" width="94" height="125" preserveAspectRatio="xMidYMax meet" />
+        </g>
         <g id="room-hits" aria-label="Choose a room">
           <path class="room-hit" data-room="maya" tabindex="0" role="button" aria-label="Enter Maya's room" d="M226 175 L817 54 L819 433 L227 437 Z" />
           <path class="room-hit" data-room="jay" tabindex="0" role="button" aria-label="Enter Jay's room" d="M844 54 L1533 192 L1534 441 L842 434 Z" />
@@ -56,10 +60,6 @@
         <button data-nav="jay" class="nav-room">Jay</button>
         <button data-nav="lounge" class="nav-room">Lounge</button>
       </div>
-      <section id="maya-actions" class="maya-actions" aria-label="Maya character actions" hidden>
-        <div class="maya-actions-name"><span class="maya-status" aria-hidden="true"></span><span>Maya</span></div>
-        <div id="maya-actions-list" class="maya-actions-list" role="group" aria-label="Choose Maya's action"></div>
-      </section>
       <div class="object-tooltip" id="object-tooltip" hidden><span class="tooltip-pin"></span><span id="tooltip-text">Explore</span><span class="tooltip-arrow">↗</span></div>
       <div class="object-discovery" id="object-discovery" hidden>
         <button type="button" id="object-discovery-trigger" class="object-discovery-trigger" aria-expanded="false" aria-controls="object-discovery-menu"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>Objects</span><span id="object-count">4</span></button>

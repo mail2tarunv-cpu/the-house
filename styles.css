@@ -464,3 +464,8 @@
   mask-image:linear-gradient(to bottom,#000 0%,#000 64%,rgba(0,0,0,.65) 69%,transparent 78%);
 }
 .maya-character[data-action="walk"] img{image-rendering:auto;object-fit:contain}
+
+/* Maya is a resident, not a player-operated animation menu. */
+.maya-overview{pointer-events:none;filter:drop-shadow(0 2px 2px rgba(45,43,31,.16));transition:opacity .24s ease}
+.maya-overview image{pointer-events:none;image-rendering:auto}
+@media(prefers-reduced-motion:reduce){.maya-overview{transition:none}}
