@@ -7,8 +7,8 @@
 <meta name="description" content="A little place for your people. Explore the stories in your friends' rooms." />
 <title>The House — A place for your people</title>
 <link rel="preload" href="./assets/house-approved.webp" as="image" type="image/webp" />
-<link rel="stylesheet" href="./styles.css?v=7" />
-<script defer src="./app.js?v=7"></script>
+<link rel="stylesheet" href="./styles.css?v=8" />
+<script defer src="./app.js?v=8"></script>
 </head>
 <body>
 <div class="app">
@@ -53,7 +53,7 @@
         <button type="button" data-mobile-room="jay">Jay</button>
         <button type="button" data-mobile-room="lounge">Lounge</button>
       </div>
-      <p class="interaction-hint" id="interaction-hint" hidden>Explore the objects in this room</p>
+      <div id="object-discovery" class="object-discovery" hidden><button type="button" id="objects-button" class="objects-button" aria-expanded="false" aria-controls="objects-menu">Objects <span id="objects-count"></span></button><div id="objects-menu" class="objects-menu" hidden></div></div><div id="object-tooltip" class="object-tooltip" hidden></div>
     </div>
   </main>
   <footer class="subfooter"><span>OUR LITTLE CORNER OF THE INTERNET</span><span class="proto-note">A local, interactive prototype</span></footer>

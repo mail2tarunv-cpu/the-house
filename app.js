@@ -56,7 +56,7 @@ const fade=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
 const mix=(a,b,t)=>a+(b-a)*t;
 function animate(from,to,duration,paint){return new Promise(resolve=>{if(reduce.matches||duration===0){paint(1);resolve();return;}const start=performance.now();const tick=now=>{const q=Math.max(0,Math.min(1,(now-start)/duration));paint(q);if(q<1)requestAnimationFrame(tick);else resolve();};requestAnimationFrame(tick);});}
 function writeCamera(v){camera=v;house.setAttribute('viewBox',`${v.x} ${v.y} ${v.w} ${v.h}`);}
-function renderNavigation(){const inside=Boolean(room);$('#room-navigation').hidden=!inside;$('#mobile-rooms').hidden=inside;$('#interaction-hint').hidden=!inside;$('#intro-hint').hidden=inside;$('#scene-heading').hidden=!inside;
+function renderNavigation(){const inside=Boolean(room);$('#room-navigation').hidden=!inside;$('#mobile-rooms').hidden=inside;$('#object-discovery').hidden=!inside;objectMenu.hidden=true;objectsButton.setAttribute('aria-expanded','false');hideObjectTip();$('#intro-hint').hidden=inside;$('#scene-heading').hidden=!inside;
   if(inside){$('#scene-title').textContent=ROOMS[room].name;$('#scene-eyebrow').textContent=ROOMS[room].eyebrow;}
   document.querySelectorAll('[data-nav]').forEach(btn=>btn.setAttribute('aria-current',String(btn.dataset.nav===room)));
   $('#room-tip').hidden=true;$('#room-hits').hidden=inside;
@@ -83,13 +83,22 @@ async function leave(forSwitch=false){if(!room)return;if(active)closeArtifact();
   await animate(from,to,reduce.matches?0:850,p=>{if(token!==navToken)return;const move=ease(Math.max(0,(p-.18)/.82));writeCamera({x:mix(from.x,to.x,move),y:mix(from.y,to.y,move),w:mix(from.w,to.w,move),h:mix(from.h,to.h,move)});detail.style.opacity=String(mix(opacity,0,fade(p/.38)));});
   if(token!==navToken)return;detail.hidden=true;detail.style.opacity='0';$('#object-hits').replaceChildren();
 }
-function drawObjects(id){map.replaceChildren();for(const x of OBJECTS[id]){
-  const group=document.createElementNS(NS,'g');group.classList.add('object-group');
-  const hit=document.createElementNS(NS,'rect');hit.setAttribute('class','object-hit');hit.setAttribute('x',x.rect[0]);hit.setAttribute('y',x.rect[1]);hit.setAttribute('width',x.rect[2]);hit.setAttribute('height',x.rect[3]);hit.setAttribute('rx','14');hit.setAttribute('tabindex','0');hit.setAttribute('role','button');hit.setAttribute('aria-label','Explore '+x.label);
-  const label=document.createElementNS(NS,'text');label.classList.add('hotspot-caption');label.setAttribute('x',x.point[0]);label.setAttribute('y',x.point[1]);label.setAttribute('text-anchor','middle');label.textContent=x.label;
-  const run=e=>{e.stopPropagation();openArtifact(x.id,id);};hit.addEventListener('click',run);hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run(e);}});
-  group.append(hit,label);map.appendChild(group);
+const objectTip=$('#object-tooltip'), objectMenu=$('#objects-menu'), objectsButton=$('#objects-button');
+function hideObjectTip(){objectTip.hidden=true;}
+function objectTipAt(item){if(!room||active)return;const svg=$('#object-map'),m=svg.getScreenCTM();if(!m)return;const pt=svg.createSVGPoint();pt.x=item.point[0];pt.y=item.point[1];const p=pt.matrixTransform(m),rect=$('#stage').getBoundingClientRect();objectTip.textContent=item.label+' ↗';objectTip.style.left=Math.max(78,Math.min(rect.width-78,p.x-rect.left))+'px';objectTip.style.top=Math.max(44,Math.min(rect.height-40,p.y-rect.top-22))+'px';objectTip.hidden=false;}
+function drawObjects(id){map.replaceChildren();objectMenu.replaceChildren();$('#objects-count').textContent=OBJECTS[id].length;
+for(const item of OBJECTS[id]){
+ const b=document.createElement('button');b.type='button';b.className='objects-item';b.innerHTML='<span>'+safe(item.label)+'</span><span aria-hidden="true">↗</span>';b.addEventListener('click',()=>{objectMenu.hidden=true;objectsButton.setAttribute('aria-expanded','false');openArtifact(item.id,id);});objectMenu.appendChild(b);
+ const hit=document.createElementNS(NS,'rect');for(const [k,v] of Object.entries({x:item.rect[0],y:item.rect[1],width:item.rect[2],height:item.rect[3],rx:8}))hit.setAttribute(k,v);
+ hit.setAttribute('class','object-hit');hit.setAttribute('tabindex','0');hit.setAttribute('role','button');hit.setAttribute('aria-label','Explore '+item.label);
+ hit.addEventListener('pointerenter',()=>objectTipAt(item));hit.addEventListener('pointerleave',hideObjectTip);
+ hit.addEventListener('focus',()=>objectTipAt(item));hit.addEventListener('blur',hideObjectTip);
+ const run=e=>{e.stopPropagation();hideObjectTip();openArtifact(item.id,id,hit);};
+ hit.addEventListener('click',run);hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run(e);}});
+ map.appendChild(hit);
 }}
+objectsButton.addEventListener('click',()=>{const opening=objectMenu.hidden;objectMenu.hidden=!opening;objectsButton.setAttribute('aria-expanded',String(opening));hideObjectTip();});
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#object-discovery')){objectMenu.hidden=true;objectsButton.setAttribute('aria-expanded','false');}});
 function roomHover(ev,id){const tip=$('#room-tip');if(!id||room){tip.hidden=true;return;}tip.hidden=false;tip.querySelector('.tip-name').textContent=ROOMS[id].name;const [x,y]=ROOMS[id].anchor,pt=house.createSVGPoint();pt.x=x;pt.y=y;const pixel=pt.matrixTransform(house.getScreenCTM());const b=$('#stage').getBoundingClientRect();tip.style.left=(pixel.x-b.left)+'px';tip.style.top=(pixel.y-b.top)+'px';}
 for(const el of document.querySelectorAll('.room-hit')){el.addEventListener('pointerenter',()=>roomHover(null,el.dataset.room));el.addEventListener('pointerleave',()=>roomHover(null,null));el.addEventListener('focus',()=>roomHover(null,el.dataset.room));el.addEventListener('blur',()=>roomHover(null,null));el.addEventListener('click',()=>enter(el.dataset.room));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter(el.dataset.room);}});}
 document.querySelectorAll('[data-mobile-room]').forEach(button=>button.addEventListener('click',()=>enter(button.dataset.mobileRoom)));
@@ -106,10 +115,16 @@ function template(left,right){return `<div class="artefact-layout">${left}<div c
 const title=(name,copy,extra='')=>`<span class="overline">${extra||'A SMALL DISCOVERY'}</span><h2>${name}</h2><p class="lead">${copy}</p>`;
 function itemsFor(kind,loc){let arr=(data[kind]||[]).filter(x=>x.room===loc);return arr;}
 function matches(s,kind){const status=s.status||'favorites';return filter==='all'||status===filter;}
+function roomCrop(kind,place,selectedName){
+ const configs={books:[54,66],movies:[30,27],vinyl:[25,92]};
+ const pos=configs[kind]||[50,50], label=kind==='books'?'MAYA\u2019S BOOKSHELF':kind==='movies'?'JAY\u2019S MOVIE WALL':'JAY\u2019S RECORD COLLECTION';
+ const disc=kind==='vinyl'?'<button type="button" id="vinyl-disc" class="live-record '+(vinylPlaying?'is-playing':'')+'" aria-label="Spin or stop the record"></button>':'';
+ return '<div class="room-crop" style="background-image:url('+ROOMS[place].img+');background-size:260% auto;background-position:'+pos[0]+'% '+pos[1]+'%">'+disc+'<div class="crop-shade"><span>'+label+'</span><strong>'+safe(selectedName||'A little collection')+'</strong></div></div>';
+}
 function media(kind,id){const entries=itemsFor(kind,id);const settings=kind==='books'?[['reading','Reading'],['tbr','To read'],['favorites','Favorites']]:kind==='movies'?[['favorites','Favorites'],['watchlist','Must watch'],['recent','Recently watched']]:[['all','Collection']];
  const allowed=entries.filter(x=>matches(x,kind));const picked=allowed[Math.min(selected,Math.max(0,allowed.length-1))]||entries[0];
  const spines=kind==='books'?`<div class="shelf-illustration">${entries.slice(0,6).map((x,i)=>`<button type="button" data-pick="${i}" aria-label="Select ${safe(x.name)}" class="book-spine ${picked===x?'is-current':''}">${safe(x.name)}</button>`).join('')}</div>`:kind==='movies'?`<div class="film-grid">${entries.slice(0,3).map((x,i)=>`<button type="button" data-pick="${i}" aria-label="Select ${safe(x.name)}" class="film-poster ${picked===x?'is-current':''}"><span class="film-symbol">✳</span><b>${safe(x.name)}</b></button>`).join('')}</div>`:`<div class="record-scene"><div class="vinyl-sleeve"><div><p>From Jay's collection</p><h3>${safe(picked?.name||'A record')}</h3></div></div><button id="vinyl-disc" class="vinyl-disc ${vinylPlaying?'is-playing':''}" aria-label="${vinylPlaying?'Stop':'Spin'} record" title="Spin or stop the record" type="button"></button></div>`;
- const art=display(kind==='books'?'wood':kind==='movies'?'warm':'wood',spines,kind==='books'?'ON THE SHELF':kind==='movies'?'ON THE WALL':'ON THE TURNTABLE');
+ const art=roomCrop(kind,id,picked?.name);
  const rows=allowed.map((x,i)=>`<button type="button" data-select="${i}" aria-pressed="${picked===x}" class="detail-row"><div><strong>${safe(x.name)}</strong><span>${safe(x.description)}</span></div><span class="chevron">↗</span></button>`).join('')||'<p class="detail-empty">Nothing here yet. Add something you love.</p>';
  return template(art,`${title(headings[kind],sublines[kind],kind==='books'?'MAYA · READING ROOM':kind==='movies'?'JAY · THE FILM WALL':'JAY · RECORD SHELF')}<div class="segmented" role="tablist">${toggle(settings,filter)}</div><div class="detail-list">${rows}</div>${picked?`<p class="selected-note">“${safe(picked.description)}”</p>`:''}<button class="form-trigger" data-action="compose">+ Add to ${kind==='vinyl'?'the collection':'the wall'} <span>↗</span></button><div id="compose-area" hidden></div>`);
 }
@@ -130,8 +145,18 @@ return template(art,`${title('The photo wall','The stories that only make sense 
 function tv(){const first=(data.movies||[]).find(x=>x.room==='jay');return template(display('wood',`<div class="screen-tv"><span>Tonight's idea</span><strong>${safe(first?.name||'Movie night')}</strong></div>`,'THE TV CABINET'),`${title('Movie night','The little ritual of choosing something together.','IN THE LOUNGE')}<p class="selected-note">“${safe(first?.description||'There is always something good to watch.')}”</p><button class="form-trigger" data-action="go-movies">Explore Jay's watchlist <span>↗</span></button><p class="fine-print">This is a shared watchlist concept, not a streaming service.</p>`);}
 function artifactContent(){if(!active)return '';const {kind,place}=active;return ['books','movies','vinyl'].includes(kind)?media(kind,place):kind==='daily'?moment(place):kind==='notes'?notes(place):kind==='update'?update(place):kind==='gallery'?gallery():kind==='tv'?tv():'';}
 function renderArtifact(){body.innerHTML=artifactContent();const heading=headings[active.kind]||'A little discovery';$('#artifact-kicker').textContent=active.place==='lounge'?'THE LOUNGE':ROOMS[active.place]?.name||'A ROOM';$('#artifact-index').textContent=heading;}
-function openArtifact(kind,place){lastFocus=document.activeElement;active={kind,place};filter=kind==='books'?'reading':kind==='movies'?'favorites':'all';selected=0;vinylPlaying=false;pendingPhoto=null;renderArtifact();modal.hidden=false;backdrop.hidden=false;document.body.style.overflow='hidden';$('#artifact-close').focus();}
-function closeArtifact(){active=null;modal.hidden=true;backdrop.hidden=true;document.body.style.overflow='';lastFocus?.focus?.();}
+let exitTimer=null,dialogSerial=0;
+function openArtifact(kind,place,origin){
+ if(!active)lastFocus=document.activeElement;
+ ++dialogSerial;clearTimeout(exitTimer);active={kind,place};filter=kind==='books'?'reading':kind==='movies'?'favorites':'all';selected=0;vinylPlaying=false;pendingPhoto=null;renderArtifact();
+ const anchor=origin?.getBoundingClientRect?.(),cx=anchor?anchor.x+anchor.width/2:innerWidth/2,cy=anchor?anchor.y+anchor.height/2:innerHeight/2;
+ modal.style.setProperty('--origin-x',Math.round(cx/innerWidth*100)+'%');modal.style.setProperty('--origin-y',Math.round(cy/innerHeight*100)+'%');
+ modal.hidden=false;backdrop.hidden=false;document.body.style.overflow='hidden';objectMenu.hidden=true;hideObjectTip();
+ requestAnimationFrame(()=>{modal.classList.add('is-open');backdrop.classList.add('is-open');$('#artifact-close').focus({preventScroll:true});});
+}
+function closeArtifact(){if(!active)return;active=null;const serial=++dialogSerial;modal.classList.remove('is-open');backdrop.classList.remove('is-open');document.body.style.overflow='';
+ exitTimer=setTimeout(()=>{if(serial!==dialogSerial)return;modal.hidden=true;backdrop.hidden=true;lastFocus?.focus?.({preventScroll:true});},reduce.matches?0:280);
+}
 $('#artifact-close').addEventListener('click',closeArtifact);backdrop.addEventListener('click',closeArtifact);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(active)closeArtifact();else if(room)leave();else $('#circle-menu').hidden=true;return;}if(e.key==='Tab'&&active){const tabbable=[...modal.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled])')].filter(x=>!x.closest('[hidden]'));if(!tabbable.length)return;const first=tabbable[0],last=tabbable[tabbable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
 function composition(){if(!active)return '';const k=active.kind;if(['books','movies','vinyl'].includes(k)){const label=k==='books'?'Book title':k==='movies'?'Film title':'Artist — album';const options=k==='books'?'<option value="reading">Reading</option><option value="tbr">To read</option><option value="favorites">Favorite</option>':k==='movies'?'<option value="favorites">Favorite</option><option value="watchlist">Must watch</option><option value="recent">Recently watched</option>':'<option value="favorites">On the shelf</option>';return `<form class="form-area" id="compose-form"><label class="form-label" for="compose-name">${label}</label><input class="field" id="compose-name" name="title" required maxlength="100" placeholder="${label}"/><label class="form-label" for="compose-note">Your note</label><textarea id="compose-note" class="field textarea" name="note" maxlength="220" placeholder="Why does it belong here?"></textarea><label class="form-label" for="compose-status">Shelf</label><select class="field" id="compose-status" name="status">${options}</select><button class="primary-action" type="submit">Place in the room <span>↗</span></button></form>`;}
