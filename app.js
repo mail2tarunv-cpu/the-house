@@ -105,31 +105,56 @@
     const t=add('text',{x:item.x,y:item.y-28,'text-anchor':'middle',class:'marker-label'},g);t.textContent=item.name;
     const click=e=>{e.stopPropagation();openPanel(item.id,currentRoom);};g.addEventListener('click',click);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();click(e);}});
   }}
-  let detailSerial=0,detailTimer=null;
-  function showDetail(id){
-    const serial=++detailSerial;
+  // Use an HTML image above the original house; Safari/Chrome differ on SVG.hidden.
+  // The SVG hotspot layer shares the photo's 1672×941 image coordinates.
+  let detailSerial = 0;
+  let detailTimer = null;
+  function showDetail(id) {
+    const serial = ++detailSerial;
     clearTimeout(detailTimer);
     detailScene.classList.remove('is-visible');
-    detailScene.hidden=false;
-    detailImage.setAttribute('href',ROOM_IMAGES[id]);
-    detailScene.setAttribute('aria-label',ROOMS[id].name+', interactive close-up');
+    detailScene.removeAttribute('hidden');
+    detailScene.setAttribute('aria-label', ROOMS[id].name + ', interactive close-up');
     detailHotspots.replaceChildren();
-    for(const spot of DETAIL_HOTSPOTS[id]){
-      const g=add('g',{class:'detail-hotspot',role:'button',tabindex:'0','aria-label':'Explore '+spot.name},detailHotspots);
+    for (const spot of DETAIL_HOTSPOTS[id]) {
+      const g = add('g', {
+        class:'detail-hotspot',role:'button',tabindex:'0',
+        'aria-label':'Explore ' + spot.name
+      },detailHotspots);
       add('circle',{cx:spot.x,cy:spot.y,r:61,class:'detail-tap-target'},g);
       add('circle',{cx:spot.x,cy:spot.y,r:11,class:'detail-dot'},g);
-      const label=add('text',{x:spot.x,y:spot.y-27,'text-anchor':'middle',class:'detail-label'},g);
-      label.textContent=spot.name;
-      const select=e=>{e.stopPropagation();openPanel(spot.id,id)};
+      const label = add('text',{x:spot.x,y:spot.y-27,'text-anchor':'middle',class:'detail-label'},g);
+      label.textContent = spot.name;
+      const select = e => {e.stopPropagation();openPanel(spot.id,id);};
       g.addEventListener('click',select);
-      g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e)}});
+      g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e);}});
     }
-    detailTimer=setTimeout(()=>{if(serial!==detailSerial||currentRoom!==id)return;detailScene.classList.add('is-visible')},reduce.matches?0:390);
+    const reveal = () => {
+      if (serial !== detailSerial || currentRoom !== id) return;
+      detailTimer = setTimeout(() => {
+        if (serial === detailSerial && currentRoom === id) detailScene.classList.add('is-visible');
+      }, reduce.matches ? 0 : 390);
+    };
+    const src = ROOM_IMAGES[id];
+    if (detailImage.getAttribute('src') !== src) {
+      detailImage.onload = reveal;
+      detailImage.onerror = () => { if (serial === detailSerial) toast('Could not load this room illustration.'); };
+      detailImage.src = src;
+    } else if (detailImage.complete && detailImage.naturalWidth > 0) {
+      reveal();
+    } else {
+      detailImage.onload = reveal;
+      detailImage.onerror = () => { if (serial === detailSerial) toast('Could not load this room illustration.'); };
+    }
   }
-  function hideDetail(){
-    ++detailSerial;clearTimeout(detailTimer);
+  function hideDetail() {
+    ++detailSerial;
+    clearTimeout(detailTimer);
+    detailImage.onload = null;
     detailScene.classList.remove('is-visible');
-    detailTimer=setTimeout(()=>{if(!currentRoom)detailScene.hidden=true},reduce.matches?0:460);
+    detailTimer = setTimeout(() => {
+      if (!currentRoom) detailScene.setAttribute('hidden', '');
+    }, reduce.matches ? 0 : 500);
   }
   function enter(id){if(!ROOMS[id])return;currentRoom=id;if(id==='lounge'){const pos={you:[840,692],maya:[710,692],jay:[985,692]};for(const [key,[x,y]] of Object.entries(pos)){avatarState[key].x=x;avatarState[key].y=y;avatarState[key].targetX=x;}}else{const key=ROOMS[id].actor;avatarState[key].x=PEOPLE[key].x;avatarState[key].y=PEOPLE[key].y;avatarState[key].targetX=PEOPLE[key].x;}closePanel();const r=ROOMS[id];$('#scene-kicker').textContent=r.kicker;$('#scene-title').textContent=r.name;$('#scene-subtitle').textContent=r.description;$('#return-home').hidden=false;$('#room-targets').hidden=true;$('#scene-overlay').hidden=true;$('#scene-caption').hidden=false;buttons.forEach(b=>b.setAttribute('aria-current',b.dataset.goto===id?'true':'false'));$('#footer-label').textContent='INSIDE / '+r.name.toUpperCase();drawActors();drawHotspots();cameraTo(id);showDetail(id);}
   function home(){currentRoom=null;for(const [key,p] of Object.entries(PEOPLE)){avatarState[key].x=p.x;avatarState[key].y=p.y;avatarState[key].targetX=p.x;}closePanel();$('#scene-kicker').textContent='COME ON IN';$('#scene-title').textContent='Different rooms. One little world.';$('#scene-subtitle').textContent="Step into a friend's space, leave a note, or see what everyone is up to.";$('#return-home').hidden=true;$('#room-targets').hidden=false;$('#scene-overlay').hidden=false;$('#scene-caption').hidden=true;buttons.forEach(b=>b.removeAttribute('aria-current'));$('#footer-label').textContent='HOUSE OVERVIEW · 01 / 01';drawActors();drawHotspots();hideDetail();cameraTo(null);}

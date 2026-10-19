@@ -7,8 +7,8 @@
 <title>The House — A little space for us</title>
 <meta name="description" content="Our rooms. Our little stories. A playable close-friends social space demo.">
 <link rel="preload" href="./assets/house-approved.webp?v=3" as="image" type="image/webp">
-<link rel="stylesheet" href="./styles.css">
-<script src="./app.js" defer></script>
+<link rel="stylesheet" href="./styles.css?v=5">
+<script src="./app.js?v=5" defer></script>
 </head>
 <body>
 <div class="app-shell">
@@ -31,10 +31,12 @@
       <g id="room-objects" hidden></g>
       <g id="character-overlays" hidden></g>
     </svg>
-    <svg id="detail-scene" class="detail-scene" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice" aria-label="Room close-up" hidden>
-      <image id="detail-image" x="0" y="0" width="1672" height="941" preserveAspectRatio="xMidYMid slice" href="" />
-      <g id="detail-hotspots"></g>
-    </svg>
+    <div id="detail-scene" class="detail-scene" aria-label="Room close-up" hidden>
+      <img id="detail-image" alt="High-resolution illustration of the selected room" decoding="async" />
+      <svg id="detail-interactions" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice" aria-label="Interactive room objects">
+        <g id="detail-hotspots"></g>
+      </svg>
+    </div>
     <div class="scene-overlay" id="scene-overlay"><span class="asterisk">✳</span> CLICK A ROOM TO EXPLORE</div>
     <div class="scene-caption" id="scene-caption" hidden>✳ Explore the objects in this room</div>
   </div>
