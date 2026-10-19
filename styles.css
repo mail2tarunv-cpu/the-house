@@ -445,3 +445,9 @@
 /* Plant artwork is an upper-body pose. Position it at the actual desk edge, not mid-floor. */
 .maya-character[data-action="plant"] img{mask-image:none;clip-path:none}
 @media(prefers-reduced-motion:reduce){.maya-character{transition:none}.maya-character img.switching{animation:none!important}}
+
+/* Consistent room-space movement: one camera-independent coordinate system. */
+.maya-character[data-motion="moving"]{transition:none!important}
+.maya-character img{transition:opacity .13s ease;object-fit:contain}
+.maya-character[data-action="walk"] img{transition:none}
+@media(prefers-reduced-motion:reduce){.maya-character img{transition:none!important}}

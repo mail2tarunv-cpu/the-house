@@ -181,119 +181,145 @@ function mayaImageSource(name){
   return MAYA_ROOT+name;
 }
 mayaPrepareArtwork().catch(()=>{});
+// Short, interruptible character choreography. One synchronized animation controller.
+const MAYA_APPROACH={
+  maya:{idle:1120,walk:1110,read:1040,write:1250,plant:1340},
+  lounge:{idle:1100,walk:1080,read:550,relax:930,plant:1290}
+};
+const mayaStage={active:false,x:1120,bottom:851,w:183,h:230};
+let mayaMotionToken=0,mayaMoveRaf=0,mayaSettlingTimer=0;
 function mayaCurrentPose(){return MAYA_POSES[room]?.[mayaCurrent[room]]||null;}
+function mayaFrameSize(pose){
+  const d=MAYA_DYNAMIC_DIMS[pose.frame]||MAYA_DIMENSIONS[pose.frame]||[310,390];
+  const w=pose.w??(pose.h*d[0]/d[1]);
+  return {w,h:pose.h??(pose.w*d[1]/d[0])};
+}
 function mayaLayout(){
-  const pose=mayaCurrentPose();
-  if(!pose||mayaCharacter.hidden||detail.hidden)return;
+  if(mayaCharacter.hidden||detail.hidden||!mayaCurrentPose())return;
+  const p=mayaCurrentPose(),sz=mayaFrameSize(p);
+  const pos=mayaStage.active?mayaStage:{x:p.x,bottom:p.bottom,...sz};
   const width=detail.clientWidth,height=detail.clientHeight;
   if(!width||!height)return;
-  const scale=Math.max(width/1672,height/941);
-  const ox=(width-1672*scale)/2,oy=(height-941*scale)/2;
-  const walking=mayaCurrent[room]==='walk';
-  const x=walking?mayaTravel.x:pose.x;
-  const bottom=walking?mayaTravel.bottom:pose.bottom;
-  const dims=MAYA_DYNAMIC_DIMS[pose.frame]||MAYA_DIMENSIONS[pose.frame]||[310,390];
-  const spriteWidth=pose.w??(pose.h*dims[0]/dims[1]);
-  const spriteHeight=pose.h??(pose.w*dims[1]/dims[0]);
-  mayaCharacter.style.left=(ox+x*scale)+'px';
-  mayaCharacter.style.top=(oy+bottom*scale)+'px';
-  mayaCharacter.style.width=(spriteWidth*scale)+'px';
-  mayaCharacter.style.height=(spriteHeight*scale)+'px';
+  const scale=Math.max(width/1672,height/941),ox=(width-1672*scale)/2,oy=(height-941*scale)/2;
+  mayaCharacter.style.left=(ox+pos.x*scale)+'px';
+  mayaCharacter.style.top=(oy+pos.bottom*scale)+'px';
+  mayaCharacter.style.width=(pos.w*scale)+'px';
+  mayaCharacter.style.height=(pos.h*scale)+'px';
 }
-function mayaStopWalking(){
+function mayaAbort(){
+  ++mayaMotionToken;
+  if(mayaMoveRaf)cancelAnimationFrame(mayaMoveRaf);
   if(mayaAnimationId)cancelAnimationFrame(mayaAnimationId);
-  mayaAnimationId=0;mayaTravel.last=0;
+  if(mayaSettlingTimer)clearTimeout(mayaSettlingTimer);
+  mayaMoveRaf=mayaAnimationId=mayaSettlingTimer=0;
+  mayaTravel.last=0;
 }
-function mayaResetWalk(){
-  const route=MAYA_WALK_ROUTES[room];
-  if(!route)return;
-  Object.assign(mayaTravel,{room,x:route[0].x,bottom:route[0].bottom,goal:1,last:0,holdUntil:0,facing:'right'});
-  mayaPose.style.transform='';
-  mayaFrame=-1;
+function mayaSetFrame(frame,dir='right'){
+  const src=frame.startsWith('walk_')?MAYA_ROOT+frame:mayaImageSource(frame);
+  if(mayaPose.getAttribute('src')!==src)mayaPose.setAttribute('src',src);
+  mayaPose.style.transform=dir==='left'?'scaleX(-1)':'';
 }
-function mayaWalkFrame(now){
-  if(mayaCharacter.hidden||!MAYA_WALK_ROUTES[room]||mayaCurrent[room]!=='walk'){
-    mayaStopWalking();return;
-  }
-  const route=MAYA_WALK_ROUTES[room];
-  const dt=mayaTravel.last?Math.min((now-mayaTravel.last)/1000,.05):0;
-  mayaTravel.last=now;
-  if(!reduce.matches&&now>=mayaTravel.holdUntil){
-    const end=route[mayaTravel.goal];
-    const dx=end.x-mayaTravel.x,dy=end.bottom-mayaTravel.bottom;
-    const distance=Math.hypot(dx,dy);
-    if(distance<=1.5){
-      mayaTravel.x=end.x;mayaTravel.bottom=end.bottom;
-      mayaTravel.goal=1-mayaTravel.goal;
-      mayaTravel.holdUntil=now+220;
-    }else{
-      const distanceTravelled=Math.min(distance,dt*155);
-      mayaTravel.x+=dx/distance*distanceTravelled;
-      mayaTravel.bottom+=dy/distance*distanceTravelled;
-      mayaTravel.facing=dx<0?'left':'right';
+function mayaSleep(ms,token){return new Promise(resolve=>{
+  mayaSettlingTimer=setTimeout(()=>{mayaSettlingTimer=0;resolve(token===mayaMotionToken);},ms);
+});}
+function mayaTween(from,to,ms,token,walking=false){return new Promise(resolve=>{
+  const start=performance.now();let last=-1;
+  function tick(now){
+    if(token!==mayaMotionToken||mayaCharacter.hidden){resolve(false);return;}
+    const t=Math.min(1,(now-start)/ms),eased=t*t*(3-2*t);
+    mayaStage.active=true;
+    for(const k of ['x','bottom','w','h'])mayaStage[k]=from[k]+(to[k]-from[k])*eased;
+    if(walking){
+      const step=Math.floor(now/145)%4;
+      if(step!==last){last=step;mayaSetFrame('walk_'+step+'-fixed.webp',to.x<from.x?'left':'right');}
     }
+    mayaLayout();
+    if(t<1)mayaMoveRaf=requestAnimationFrame(tick);
+    else{mayaMoveRaf=0;resolve(true);}
   }
-  const frame=reduce.matches?0:Math.floor(now/145)%4;
-  if(frame!==mayaFrame){
-    mayaFrame=frame;
-    mayaPose.src=MAYA_ROOT+'walk_'+frame+'-fixed.webp';
-  }
-  // Flip the walking artwork on the return leg without changing the image layout.
-  mayaPose.style.transform=mayaTravel.facing==='left'?'scaleX(-1)':'';
-  mayaLayout();
-  mayaAnimationId=requestAnimationFrame(mayaWalkFrame);
-}
-function setMayaPose(action){
+  mayaMoveRaf=requestAnimationFrame(tick);
+});}
+async function mayaAct(action,{instant=false}={}){
   const pose=MAYA_POSES[room]?.[action];
   if(!pose)return;
-  mayaStopWalking();
+  const was=mayaCurrent[room];
+  const previous=mayaStage.active?{x:mayaStage.x,bottom:mayaStage.bottom,w:mayaStage.w,h:mayaStage.h}:
+    {x:MAYA_POSES[room][was].x,bottom:MAYA_POSES[room][was].bottom,...mayaFrameSize(MAYA_POSES[room][was])};
+  mayaAbort();const token=mayaMotionToken,where=room;
   mayaCurrent[room]=action;
-  mayaFrame=-1;
+  Object.assign(mayaStage,previous,{active:true});
+  mayaCharacter.dataset.motion='moving';
+  mayaLayout();
   mayaCharacter.dataset.action=action;
-  mayaPose.style.transform='';
-  mayaPose.classList.remove('switching');
-  void mayaPose.offsetWidth;
-  mayaPose.classList.add('switching');
-  if(action==='walk'){
-    mayaResetWalk();
-    mayaPose.src=MAYA_ROOT+(reduce.matches?'idle-fixed.webp':pose.frame);
-  }else mayaPose.src=mayaImageSource(pose.frame);
   mayaCharacter.setAttribute('aria-label','Maya: '+pose.description);
   mayaActionsList.querySelectorAll('[data-maya-action]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.mayaAction===action)));
-  mayaLayout();
-  if(action==='walk'&&!reduce.matches)mayaAnimationId=requestAnimationFrame(mayaWalkFrame);
+  const finish=()=>{
+    if(token!==mayaMotionToken||room!==where)return;
+    mayaStage.active=false;delete mayaCharacter.dataset.motion;
+    mayaSetFrame(pose.frame);mayaPose.style.opacity='1';
+    mayaCharacter.dataset.action=action;mayaLayout();
+  };
+  if(instant||reduce.matches){finish();return;}
+  const ground={x:previous.x,bottom:851,w:183,h:230};
+  const goal={x:MAYA_APPROACH[room][action]??pose.x,bottom:851,w:183,h:230};
+  // Rise before walking away from existing furniture, without bringing in duplicate props.
+  if(['read','write','relax','plant'].includes(was)&&was!==action){
+    mayaPose.style.opacity='.25';
+    if(!await mayaSleep(105,token))return;
+    mayaSetFrame('idle-fixed.webp');mayaPose.style.opacity='1';
+    if(!await mayaTween(previous,ground,240,token))return;
+  }
+  const current=mayaStage.active?{x:mayaStage.x,bottom:mayaStage.bottom,w:mayaStage.w,h:mayaStage.h}:previous;
+  if(action==='walk'){
+    const path=MAYA_WALK_ROUTES[room];
+    if(!path){finish();return;}
+    const first={x:path[0].x,bottom:path[0].bottom,w:183,h:230};
+    if(!await mayaTween(current,first,Math.max(220,Math.abs(current.x-first.x)*2.5),token,true))return;
+    async function patrol(){
+      let prev=first,dir=1;
+      while(token===mayaMotionToken&&room===where&&mayaCurrent[room]==='walk'){
+        const next={x:path[dir].x,bottom:path[dir].bottom,w:183,h:230};
+        if(!await mayaTween(prev,next,Math.max(380,Math.abs(next.x-prev.x)*5.4),token,true))return;
+        if(!await mayaSleep(160,token))return;
+        prev=next;dir=1-dir;
+      }
+    }
+    patrol();return;
+  }
+  if(Math.abs(current.x-goal.x)>35){
+    if(!await mayaTween(current,goal,Math.max(240,Math.abs(current.x-goal.x)*4.2),token,true))return;
+  }else{
+    if(!await mayaTween(current,goal,230,token,false))return;
+  }
+  if(token!==mayaMotionToken)return;
+  // Brief readiness pose, then a synchronized image/position settle into the final action.
+  mayaSetFrame('idle-fixed.webp');
+  if(!await mayaSleep(115,token))return;
+  mayaPose.style.opacity='.12';
+  if(!await mayaSleep(110,token))return;
+  mayaSetFrame(pose.frame);mayaPose.style.opacity='1';
+  if(!await mayaTween(goal,{x:pose.x,bottom:pose.bottom,...mayaFrameSize(pose)},330,token))return;
+  finish();
 }
+function setMayaPose(name){mayaAct(name);}
 function mayaSwitchButtons(){
   const poseGroup=MAYA_POSES[room];
   mayaActionsList.replaceChildren();
   if(!poseGroup)return;
   for(const action of Object.keys(poseGroup)){
-    const btn=document.createElement('button');
-    btn.type='button';btn.dataset.mayaAction=action;
-    btn.textContent=MAYA_LABELS[action];
+    const btn=document.createElement('button');btn.type='button';
+    btn.dataset.mayaAction=action;btn.textContent=MAYA_LABELS[action];
     btn.setAttribute('aria-pressed',String(mayaCurrent[room]===action));
-    btn.title=poseGroup[action].description;
-    mayaActionsList.appendChild(btn);
+    btn.title=poseGroup[action].description;mayaActionsList.appendChild(btn);
   }
-  mayaCharacter.hidden=false;
-  setMayaPose(mayaCurrent[room]);
+  mayaCharacter.hidden=false;mayaStage.active=false;
+  mayaAct(mayaCurrent[room],{instant:true});
 }
-function mayaShow(){
-  if(!MAYA_POSES[room])return;
-  mayaSwitchButtons();
-  mayaActions.hidden=false;
-  mayaLayout();
-}
-function mayaHide(){
-  mayaStopWalking();
-  mayaCharacter.hidden=true;
-  mayaActions.hidden=true;
-}
-mayaActionsList.addEventListener('click',e=>{
-  const button=e.target.closest('[data-maya-action]');
-  if(button)setMayaPose(button.dataset.mayaAction);
-});
+function mayaShow(){if(!MAYA_POSES[room])return;mayaSwitchButtons();mayaActions.hidden=false;mayaLayout();}
+function mayaHide(){mayaAbort();delete mayaCharacter.dataset.motion;mayaCharacter.hidden=true;mayaActions.hidden=true;mayaPose.style.opacity='1';mayaStage.active=false;}
+mayaActionsList.addEventListener('click',e=>{const btn=e.target.closest('[data-maya-action]');if(btn)mayaAct(btn.dataset.mayaAction);});
 window.addEventListener('resize',mayaLayout);
+
 const frames=['./assets/rooms/maya.webp','./assets/rooms/jay.webp','./assets/rooms/lounge.webp'];
 frames.forEach(src=>{const im=new Image();im.src=src;im.decoding='async';});
 function target(id){if(!id)return {...ORIGINAL};const r=ROOMS[id],b=house.getBoundingClientRect(),ratio=b.width/Math.max(1,b.height),w=r.width;return {x:r.center[0]-w/2,y:r.center[1]-w/ratio/2,w,h:w/ratio};}
