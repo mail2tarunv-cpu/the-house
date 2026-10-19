@@ -1,250 +1,154 @@
 (() => {
-  'use strict';
-  const $ = (s) => document.querySelector(s);
-  const scene = $('#scene');
-  const actorsLayer = $('#character-overlays');
-  const objectsLayer = $('#room-objects');
-  const ambientLayer = $('#ambient-actors');
-  const drawer = $('#drawer');
-  const content = $('#drawer-content');
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const detailScene = $('#detail-scene');
-  const detailImage = $('#detail-image');
-  const detailHotspots = $('#detail-hotspots');
-  const ROOM_IMAGES = {
-    maya: './assets/rooms/maya.webp',
-    jay: './assets/rooms/jay.webp',
-    lounge: './assets/rooms/lounge.webp'
-  };
-  // Locations refer to the independently drawn 1672×941 room images, not the house overview.
-  const DETAIL_HOTSPOTS = {
-    maya: [
-      { id:'books', name:'Book wall', x:785, y:495 },
-      { id:'daily', name:'Daily photo', x:1417, y:584 },
-      { id:'notes', name:'Visitor notes', x:1440, y:418 },
-      { id:'update', name:'Life lately', x:1279, y:622 }
-    ],
-    jay: [
-      { id:'movies', name:'Favorite movies', x:570, y:366 },
-      { id:'vinyl', name:'Vinyl collection', x:520, y:600 },
-      { id:'daily', name:'Daily photo', x:1463, y:687 },
-      { id:'notes', name:'Visitor notes', x:1411, y:498 },
-      { id:'update', name:'Life lately', x:1290, y:703 }
-    ],
-    lounge: [
-      { id:'gallery', name:'Memory wall', x:740, y:330 },
-      { id:'tv', name:'Watch together', x:172, y:468 },
-      { id:'daily', name:'Daily photo', x:640, y:455 },
-      { id:'notes', name:'Visitor notes', x:624, y:668 },
-      { id:'lounge', name:"Who's here?", x:905, y:546 },
-      { id:'update', name:'Life updates', x:1305, y:421 }
-    ]
-  };
-  // Preload and decode room art early; transitions are never tied to download timing.
-  const roomImageCache = new Map();
-  for (const [id, src] of Object.entries(ROOM_IMAGES)) {
-    const img = new Image();
-    img.decoding = 'async';
-    img.src = src;
-    roomImageCache.set(id, img);
-  }
-  const NS = 'http://www.w3.org/2000/svg';
-  const ORIGINAL = { x:0, y:0, w:1672, h:941 };
-  const PEOPLE = {
-    maya: { name:'Maya', subtitle:'Reading everything, all at once.', color:'#6d916f', x:727, y:309 },
-    jay:  { name:'Jay', subtitle:'Always has a new record.', color:'#c77768', x:1284, y:310 },
-    you:  { name:'You', subtitle:'Here for the little moments.', color:'#9882b7', x:805, y:655 }
-  };
-  const ROOMS = {
-    maya: {name:"Maya's room",kicker:'01 / THE LITTLE LIBRARY',description:'A bookshelf, a few favorites, a little window into her week.',cx:519,cy:262,w:715,actor:'maya',walk:{lo:645,hi:765,y:320},objects:[
-      {id:'books',name:'Books',x:551,y:262},{id:'update',name:'Life update',x:741,y:282},{id:'notes',name:'Letters',x:724,y:360},{id:'daily',name:'Daily photo',x:761,y:302}]},
-    jay: {name:"Jay's room",kicker:'02 / SOUNDTRACKS & STORIES',description:'Films, records and whatever Jay has been obsessing over.',cx:1154,cy:262,w:735,actor:'jay',walk:{lo:1185,hi:1280,y:326},objects:[
-      {id:'vinyl',name:'Vinyl',x:1010,y:315},{id:'movies',name:'Movies',x:1082,y:223},{id:'update',name:'Life update',x:1420,y:302},{id:'daily',name:'Daily photo',x:1428,y:280},{id:'notes',name:'Notes',x:872,y:314}]},
-    lounge: {name:'The shared lounge',kicker:'03 / THE PLACE WE SHARE',description:'A room shaped by the stories we have together.',cx:831,cy:616,w:1110,actor:'you',walk:{lo:775,hi:1015,y:688},objects:[
-      {id:'gallery',name:'Photo wall',x:744,y:527},{id:'tv',name:'Watch together',x:425,y:569},{id:'daily',name:"Today's photo",x:796,y:544},{id:'notes',name:'Visitor notes',x:684,y:679},{id:'lounge',name:"Who's here?",x:860,y:523},{id:'update',name:'Life updates',x:930,y:490}]}
-  };
-  const SEED = {
-    presence: {maya:true,jay:false,you:true},
-    books: [{id:'b1',room:'maya',name:'The Creative Act',description:'A reminder to make things just because.',icon:'✳'},{id:'b2',room:'maya',name:'Crying in H Mart',description:'This one stayed with me for days.',icon:'✿'},{id:'b3',room:'maya',name:'Tomorrow, and Tomorrow, and Tomorrow',description:'For our late-night conversations.',icon:'✦'}],
-    movies: [{id:'m1',room:'jay',name:'Before Sunrise',description:'Could watch these two talk forever.',icon:'☼'},{id:'m2',room:'jay',name:'Perfect Days',description:'A film about noticing the small things.',icon:'✴'},{id:'m3',room:'jay',name:'The Grand Budapest Hotel',description:'Everything about the colors.',icon:'◆'}],
-    vinyl: [{id:'v1',room:'jay',name:'Blonde — Frank Ocean',description:'My default rainy-day soundtrack.',icon:'◉'},{id:'v2',room:'jay',name:'Currents — Tame Impala',description:'Still sounds like a different planet.',icon:'◈'},{id:'v3',room:'jay',name:'In Rainbows — Radiohead',description:'No skips.',icon:'◎'}],
-    notes:[{id:'n1',room:'maya',from:'Jay',text:'Saw a copy of your favorite book today and thought of you.',date:'Yesterday'}],
-    updates:{maya:'Trying to finish two books before the month ends. The weather has me staying in.',jay:'Found a record shop I could spend three hours in. Currently playing everything on repeat.',lounge:'Three friends. Two cities. So many unfinished conversations.'},
-    photos:{},
-    loungeMembers:{maya:true,jay:false}
-  };
-  function load(){try{const r=JSON.parse(localStorage.getItem('the-house-demo-v4')||'null');if(r&&r.version===4)return {...structuredClone(SEED),...r.data};}catch{}return structuredClone(SEED);}
-  let data=load();
-  const persist=()=>{try{localStorage.setItem('the-house-demo-v4',JSON.stringify({version:4,data}));}catch{toast('Storage is full. Try a smaller photo.');}};
-  let currentRoom=null, panel=null, view={...ORIGINAL}, animationSerial=0, paused=false;
-  let avatarState={};let clock=0,lastFrame=0;
-  Object.entries(PEOPLE).forEach(([id,p])=>{avatarState[id]={x:p.x,y:p.y,targetX:p.x,frame:0,moving:false};});
-  const buttons=[...document.querySelectorAll('[data-goto]')];
-  const escape=(s)=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const makeId=()=>String(Date.now())+'-'+Math.random().toString(36).slice(2,6);
-  const fmtToday=()=>new Date().toLocaleDateString('en-CA');
-  const add=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,String(v)));parent.appendChild(e);return e;};
-  const lerp=(a,b,t)=>a+(b-a)*t;
-  const ease = t => 1 - Math.pow(1 - Math.min(1,Math.max(0,t)),4);
-  const smooth = t => {const x=Math.min(1,Math.max(0,t));return x*x*(3-2*x);};
-  function targetView(id){if(!id)return {...ORIGINAL};const r=ROOMS[id];const rect=scene.getBoundingClientRect();const ratio=Math.max(.7,rect.width/Math.max(1,rect.height));let w=r.w,h=w/ratio;const maxH=1100;if(h>maxH){h=maxH;w=h*ratio;}return {x:r.cx-w/2,y:r.cy-h/2,w,h};}
-  let queuedRoom = null;
-  let navigationFrame = 0;
-  function cameraTo(id) {
-    // A single clock drives the camera and sharp-room blend. No competing timers.
-    const token=++animationSerial;
-    cancelAnimationFrame(navigationFrame);
-    const from={...view},to=targetView(id);
-    const entering=Boolean(id);
-    const startOpacity=Math.min(1,Math.max(0,Number(detailScene.style.opacity || (entering ? 0 : 1))));
-    const start=performance.now();
-    const duration=reduce.matches?0:(entering?1060:970);
-    if(entering){detailScene.removeAttribute('hidden');detailScene.style.pointerEvents='none';}
-    const tick=now=>{
-      if(token!==animationSerial)return;
-      const ms=duration ? Math.min(duration,Math.max(0,now-start)) : duration;
-      // Enter: travel first, then reveal only as the camera approaches its destination.
-      // Exit: remove the detailed photo first, then pull the camera back out.
-      const travel=reduce.matches?1:(entering?ease(ms/820):ease((ms-170)/790));
-      const opacity=reduce.matches?(entering?1:0):(entering ? smooth((ms-555)/450) : 1-smooth(ms/380));
-      view={x:lerp(from.x,to.x,travel),y:lerp(from.y,to.y,travel),w:lerp(from.w,to.w,travel),h:lerp(from.h,to.h,travel)};
-      scene.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);
-      // If an image has not finished loading, keep the house on screen.
-      const ready=detailImage.complete&&detailImage.naturalWidth>0;
-      const alpha=entering?(ready?opacity:0):lerp(startOpacity,0,1-opacity);
-      detailScene.style.opacity=String(alpha);
-      detailScene.style.transform=`scale(${(1.022-0.022*(entering?opacity:1-opacity)).toFixed(4)})`;
-      if(ms<duration){navigationFrame=requestAnimationFrame(tick);return;}
-      if(!entering){detailScene.setAttribute('hidden','');detailScene.style.opacity='0';detailScene.style.transform='scale(1)';if(queuedRoom){const next=queuedRoom;queuedRoom=null;enter(next);}}
-      else if(!ready){
-        // Slow connections still get an eased reveal when the image arrives.
-        const desired=id;
-        const finish=()=>{
-          if(token!==animationSerial||currentRoom!==desired)return;
-          detailImage.onload=null;
-          detailScene.animate([{opacity:0,transform:'scale(1.022)'},{opacity:1,transform:'scale(1)'}],{duration:reduce.matches?0:420,easing:'cubic-bezier(.22,.7,.25,1)',fill:'forwards'}).finished.then(()=>{if(token===animationSerial){detailScene.style.opacity='1';detailScene.style.transform='scale(1)';detailScene.style.pointerEvents='auto';}}).catch(()=>{});
-        };
-        detailImage.addEventListener('load',finish,{once:true});
-      }
-      if(entering&&ready){detailScene.style.opacity='1';detailScene.style.transform='scale(1)';detailScene.style.pointerEvents='auto';}
-    };
-    navigationFrame=requestAnimationFrame(tick);
-  }
-  const cls=(el,cl,on)=>el.classList.toggle(cl,Boolean(on));
-  function drawActors(){actorsLayer.replaceChildren();ambientLayer.replaceChildren();return;const ids=currentRoom==='lounge'?['you',...Object.keys(data.loungeMembers).filter(id=>data.loungeMembers[id])]:currentRoom?[ROOMS[currentRoom].actor]:['maya','jay','you'];ids.forEach(id=>{
-    const p=PEOPLE[id],s=avatarState[id],g=add('g',{'class':'character-button','role':'button','tabindex':'0','aria-label':`${p.name}, ${data.presence[id]?'online':'offline'}`},actorsLayer);
-    const pos=add('g',{'transform':`translate(${s.x-38} ${s.y-110})`},g);g.dataset.person=id;
-    add('ellipse',{cx:38,cy:104,rx:24,ry:6,fill:'#332d2922'},pos);
-    const viewport=add('svg',{x:0,y:0,width:76,height:108,viewBox:'0 0 76 108',style:'overflow:hidden;pointer-events:none'},pos);
-    add('image',{href:`./assets/sprites/${id}.svg`,x:-76*s.frame,y:0,width:608,height:108},viewport);
-    add('rect',{x:13,y:110,width:54,height:21,rx:10,fill:'#fffdf8',stroke:'#d7d5cd','stroke-width':1},pos);
-    const text=add('text',{x:40,y:124,'text-anchor':'middle',class:'avatar-name'},pos);text.textContent=p.name;
-    add('circle',{cx:65,cy:111,r:7,fill:data.presence[id]?'#75ac7e':'#a6a6a2',class:'presence-pip'},pos);
-    g.addEventListener('click',e=>{e.stopPropagation();openPanel('person',id);});
-    g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openPanel('person',id);}});
-  });}
-  function updateActorPositions(){const els=[...actorsLayer.querySelectorAll('[data-person]')];for(const g of els){const s=avatarState[g.dataset.person],pos=g.firstElementChild;pos.setAttribute('transform',`translate(${s.x-38} ${s.y-110})`);const image=pos.querySelector('image');if(image)image.setAttribute('x',String(-76*s.frame));const pip=pos.querySelector('.presence-pip');pip?.setAttribute('fill',data.presence[g.dataset.person]?'#75ac7e':'#a6a6a2');}}
-  function animate(now){const dt=Math.min((now-lastFrame)/1000,.05)||0;lastFrame=now;clock+=dt;let changed=false;
-    for(const [id,s] of Object.entries(avatarState)){
-      if(Math.abs(s.targetX-s.x)>1){const d=s.targetX-s.x;s.x+=Math.sign(d)*Math.min(Math.abs(d),dt*125);s.moving=true;changed=true;}
-      else{s.x=s.targetX;s.moving=false;}
-      const frame=s.moving?4+(Math.floor(clock*9)%4):Math.floor(clock*2.8)%4;
-      if(s.frame!==frame){s.frame=frame;changed=true;}
-    }if(changed)updateActorPositions();requestAnimationFrame(animate);
-  }
-  function drawHotspots(){objectsLayer.replaceChildren();objectsLayer.hidden=true;return;if(!currentRoom){objectsLayer.hidden=true;return;}objectsLayer.hidden=false;for(const item of ROOMS[currentRoom].objects){
-    const g=add('g',{role:'button',tabindex:'0','aria-label':`Explore ${item.name}`},objectsLayer);
-    add('circle',{cx:item.x,cy:item.y,r:30,class:'marker-glow'},g);
-    add('circle',{cx:item.x,cy:item.y,r:15,class:'marker-circle'},g);
-    const t=add('text',{x:item.x,y:item.y-28,'text-anchor':'middle',class:'marker-label'},g);t.textContent=item.name;
-    const click=e=>{e.stopPropagation();openPanel(item.id,currentRoom);};g.addEventListener('click',click);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();click(e);}});
-  }}
-  // HTML images render far more reliably as a close-up than an SVG marked hidden.
-  // The separate SVG hotspot layer shares the artwork's 1672×941 coordinates.
-  function showDetail(id) {
-    detailScene.removeAttribute('hidden');
-    detailScene.style.opacity='0';
-    detailScene.style.transform='scale(1.022)';
-    detailScene.style.pointerEvents='none';
-    detailImage.onload=null;
-    detailImage.onerror=()=>toast('This room image could not load.');
-    detailImage.src=ROOM_IMAGES[id];
-    detailScene.setAttribute('aria-label',ROOMS[id].name+', interactive close-up');
-    detailHotspots.replaceChildren();
-    for(const spot of DETAIL_HOTSPOTS[id]) {
-      const g=add('g',{class:'detail-hotspot',role:'button',tabindex:'0','aria-label':'Explore '+spot.name},detailHotspots);
-      add('circle',{cx:spot.x,cy:spot.y,r:61,class:'detail-tap-target'},g);
-      add('circle',{cx:spot.x,cy:spot.y,r:11,class:'detail-dot'},g);
-      const label=add('text',{x:spot.x,y:spot.y-27,'text-anchor':'middle',class:'detail-label'},g);
-      label.textContent=spot.name;
-      const select=e=>{e.stopPropagation();openPanel(spot.id,id);};
-      g.addEventListener('click',select);
-      g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e);}});
-    }
-  }
-  function hideDetail(){
-    detailScene.style.pointerEvents='none';
-  }
-  function enter(id){if(!ROOMS[id])return;currentRoom=id;if(id==='lounge'){const pos={you:[840,692],maya:[710,692],jay:[985,692]};for(const [key,[x,y]] of Object.entries(pos)){avatarState[key].x=x;avatarState[key].y=y;avatarState[key].targetX=x;}}else{const key=ROOMS[id].actor;avatarState[key].x=PEOPLE[key].x;avatarState[key].y=PEOPLE[key].y;avatarState[key].targetX=PEOPLE[key].x;}closePanel();const r=ROOMS[id];$('#scene-kicker').textContent=r.kicker;$('#scene-title').textContent=r.name;$('#scene-subtitle').textContent=r.description;$('#return-home').hidden=false;$('#room-targets').hidden=true;$('#scene-overlay').hidden=true;$('#scene-caption').hidden=false;buttons.forEach(b=>b.setAttribute('aria-current',b.dataset.goto===id?'true':'false'));$('#footer-label').textContent='INSIDE / '+r.name.toUpperCase();drawActors();drawHotspots();showDetail(id);cameraTo(id);}
-  function home(){currentRoom=null;for(const [key,p] of Object.entries(PEOPLE)){avatarState[key].x=p.x;avatarState[key].y=p.y;avatarState[key].targetX=p.x;}closePanel();$('#scene-kicker').textContent='COME ON IN';$('#scene-title').textContent='Different rooms. One little world.';$('#scene-subtitle').textContent="Step into a friend's space, leave a note, or see what everyone is up to.";$('#return-home').hidden=true;$('#room-targets').hidden=false;$('#scene-overlay').hidden=false;$('#scene-caption').hidden=true;buttons.forEach(b=>b.removeAttribute('aria-current'));$('#footer-label').textContent='HOUSE OVERVIEW · 01 / 01';drawActors();drawHotspots();hideDetail();cameraTo(null);}
-  let toastTimer;
-  function toast(message){const el=$('#toast');el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,2800);}
-  const title=(h,p='')=>`<h2>${escape(h)}</h2>${p?`<p class="section-info">${escape(p)}</p>`:''}`;
-  const cap=(txt)=>`<p class="small-note">${escape(txt)}</p>`;
-  function shelf(kind,room){const maps={books:['Book wall','The stories we keep on the shelf.','A book title','What makes this one special?','📚'],movies:['Movie list','Films worth telling your friends about.','Movie title','Why should someone watch it?','🎬'],vinyl:['Vinyl collection','Records with stories attached.','Artist — album','Why is this one on repeat?','🎵']};const [heading,subtitle,place,why,emoji]=maps[kind];const items=(data[kind]||[]).filter(x=>x.room===room);return `${title(heading,subtitle)}<div class="card-stack">${items.map(x=>`<div class="object-card"><span class="mini-cover">${escape(x.icon||emoji)}</span><div><strong>${escape(x.name)}</strong><p>${escape(x.description)}</p></div></div>`).join('')||'<div class="simple-empty">Nothing on the shelf yet.</div>'}</div><button class="primary-btn" data-action="add-toggle">+ Add something to the ${escape(kind==='vinyl'?'record':'collection')}</button><form class="add-form" id="shelf-form" hidden><p class="add-heading">ADD AN ITEM</p><label class="input-label" for="shelf-name">TITLE</label><input class="form-input" id="shelf-name" name="name" maxlength="100" required placeholder="${escape(place)}"><label class="input-label" for="shelf-desc">YOUR TAKE</label><textarea class="form-textarea" id="shelf-desc" name="description" maxlength="230" placeholder="${escape(why)}"></textarea><button class="primary-btn" type="submit">Save to shelf ↗</button></form>${cap('Prototype: edits are saved in your browser, not shared with other accounts.')}`;}
-  function notes(room){const notes=data.notes.filter(n=>n.room===room).slice().reverse();return `${title(room==='lounge'?'Notes to our group':'Notes to '+(PEOPLE[room]?.name||'the room'),'A small message that waits until someone finds it.')}<div class="card-stack">${notes.map(n=>`<div class="paper"><b>Dear ${escape(room==='lounge'?'friends':PEOPLE[room]?.name||'friend')},</b><p>${escape(n.text)}</p><small>— ${escape(n.from)} · ${escape(n.date)}</small></div>`).join('')||'<div class="simple-empty">No notes yet. Leave the first one.</div>'}</div><form id="note-form"><label class="input-label" for="note-text">LEAVE A LITTLE NOTE</label><textarea name="text" id="note-text" required maxlength="360" class="form-textarea" placeholder="I saw this and thought of you..."></textarea><button class="primary-btn" type="submit">✉ Leave a note</button></form>${cap('Only saved on this device in the demo. Letters are not actually delivered.')}`;}
-  function updatePanel(room){const name=room==='lounge'?'Everyone':PEOPLE[room].name;return `${title('Life lately','The little updates that rarely make it into a full conversation.')}<div class="update-box"><b>${escape(name.toUpperCase())} · LATEST</b><p>${escape(data.updates[room]||'No updates yet.')}</p></div><form id="update-form"><label class="input-label" for="update-text">ADD A NEW UPDATE</label><textarea id="update-text" name="text" class="form-textarea" maxlength="260" required placeholder="Something small from this week..."></textarea><button class="primary-btn" type="submit">Post update ↗</button></form>${cap('Demo updates can be edited locally. Real friend publishing requires accounts and a backend.')}`;}
-  const PHOTO_PLACEHOLDERS={maya:['📖','A slow Sunday, a good book, nowhere to be.'],jay:['🎧','On the hunt for another record store.'],lounge:['📷','Our small collection of ordinary moments.']};
-  function daily(room){const p=data.photos[room],fallback=PHOTO_PLACEHOLDERS[room]||PHOTO_PLACEHOLDERS.lounge;return `${title('A moment a day','One picture from today. Not a feed to keep up with.')}<div class="photo-card"><span class="eyebrow">${escape(p?.date||'A LITTLE SNAPSHOT')}</span>${p?.src?`<img alt="Daily shared snapshot" src="${p.src}" />`:`<div class="photo-placeholder">${escape(fallback[0])}</div>`}<p>${escape(p?.caption||fallback[1])}</p></div><label class="photo-upload" for="daily-file">📷 ${p?.date===fmtToday()?'Replace today’s photo':'Choose a photo for today'}<input type="file" name="photo" id="daily-file" accept="image/*" /></label><form id="daily-form" hidden><label class="input-label" for="daily-caption">CAPTION</label><input class="form-input" maxlength="130" id="daily-caption" placeholder="A little bit of today..."><button type="submit" class="primary-btn">Pin to the room ↗</button></form>${cap('One photo per room each day. The demo stores a compressed image in this browser only.')}`;}
-  function gallery(){return `${title('The photo wall','A few snapshots we keep coming back to.')}<div class="gallery-thumbs"><button data-action="gallery-photo" data-id="summer" aria-label="Summer trip photo">🏖️</button><button data-action="gallery-photo" data-id="coffee" aria-label="Our coffee photo">☕</button><button data-action="gallery-photo" data-id="rain" aria-label="Rainy afternoon photo">🌧️</button></div><div class="update-box" id="gallery-story"><b>THE SUMMER TRIP</b><p>That train ride where we missed our stop and somehow had the best day.</p></div><button class="primary-btn" data-action="open-daily">+ Add a new memory photo</button>`;}
-  function tv(){return `${title('What should we watch?','Your little lounge watchlist, pulled from what friends love.')}<div class="object-card"><span class="mini-cover">🌇</span><div><strong>Before Sunrise</strong><p>Jay can't stop recommending it.</p></div></div><div class="object-card"><span class="mini-cover">🎬</span><div><strong>Friday movie night?</strong><p>Start a conversation, not another endless poll.</p></div></div><button class="primary-btn" data-action="open-movies">See Jay's movie wall ↗</button>`;}
-  function lounge(){const active=['you',...Object.keys(data.loungeMembers).filter(k=>data.loungeMembers[k])];return `${title('Who is here?','Watch your shared room change as friends arrive.')}<div class="segmented">${['maya','jay'].map(id=>`<button data-action="toggle-lounge" data-id="${id}" aria-pressed="${Boolean(data.loungeMembers[id])}">${data.loungeMembers[id]?'✓ ': '+ '}${escape(PEOPLE[id].name)}</button>`).join('')}</div><div class="update-box"><b>${active.length} FRIEND${active.length===1?'':'S'} IN THE LOUNGE</b><p>${active.length===1?'The room is quiet. Invite a friend.':active.length===2?'A shared film and a couple of good memories appear.':'A group photo and the running jokes from your last trip return.'}</p></div>${cap('This is simulated participation: there are no real-time connected users yet.')}`;}
-  function person(id){const p=PEOPLE[id];return `${title(p.name,p.subtitle)}<div class="person-line"><img class="person-id" src="./assets/sprites/${id}.svg" alt="Illustrated character for ${escape(p.name)}"/><div><strong>${escape(p.name)}</strong><p>${data.presence[id]?'● Online (demo)':'○ Offline (demo)'}</p></div></div><div class="status-row"><span class="input-label">PREVIEW PRESENCE</span><button class="ghost-btn" data-action="toggle-presence" data-id="${id}">${data.presence[id]?'Set offline':'Set online'}</button></div><div class="chip-row"><button class="chip" data-action="profile-action" data-id="${id}" data-kind="update">Latest update</button><button class="chip" data-action="profile-action" data-id="${id}" data-kind="notes">Leave note</button>${id==='maya'?'<button class="chip" data-action="profile-action" data-id="maya" data-kind="books">Book wall</button>':id==='jay'?'<button class="chip" data-action="profile-action" data-id="jay" data-kind="vinyl">Records</button>':''}</div>${cap('Presence is manually simulated, not inferred from actual activity.')}`;}
-  function help(){return `${title('A little guide','This is a playable prototype, not a connected social network.')}<div class="card-stack"><div class="object-card">🏠 &nbsp; Click any of the three rooms to zoom in.</div><div class="object-card">✳ &nbsp; Tap glowing objects to explore books, films and stories.</div><div class="object-card">🚶 &nbsp; Click an open floor area to guide a character along its floor zone.</div><div class="object-card">✉ &nbsp; Post a note, upload today's photo or update a list locally.</div><div class="object-card">● &nbsp; Preview online/offline and lounge arrival states.</div></div>${cap('Your changes persist only in this browser. To make it multi-user, we need authentication, permissions, image storage and realtime presence.')}`;}
-  function openPanel(kind,room=currentRoom){panel={kind,room};$('#drawer-kicker').textContent=kind==='person'?'YOUR FRIENDS':kind==='help'?'HOW TO PLAY':room==='lounge'?'THE SHARED SPACE':'A LITTLE DISCOVERY';drawer.hidden=false;$('#drawer-backdrop').hidden=false;renderPanel();}
-  function renderPanel(){if(!panel)return;const {kind,room}=panel;content.innerHTML=kind==='person'?person(room):kind==='help'?help():['books','movies','vinyl'].includes(kind)?shelf(kind,room):kind==='notes'?notes(room):kind==='update'?updatePanel(room):kind==='daily'?daily(room):kind==='gallery'?gallery():kind==='tv'?tv():kind==='lounge'?lounge():help();}
-  function closePanel(){drawer.hidden=true;$('#drawer-backdrop').hidden=true;panel=null;}
-  function refreshRoom(){drawActors();drawHotspots();if(panel)renderPanel();}
-  content.addEventListener('click',e=>{
-    const btn=e.target.closest('[data-action]');if(!btn)return;const act=btn.dataset.action;
-    if(act==='add-toggle'){const form=$('#shelf-form');form.hidden=!form.hidden;if(!form.hidden)$('#shelf-name')?.focus();}
-    else if(act==='toggle-presence'){const id=btn.dataset.id;data.presence[id]=!data.presence[id];persist();refreshRoom();toast(`${PEOPLE[id].name} set ${data.presence[id]?'online':'offline'} (demo)`);}
-    else if(act==='toggle-lounge'){const id=btn.dataset.id;data.loungeMembers[id]=!data.loungeMembers[id];data.presence[id]=data.loungeMembers[id];persist();refreshRoom();toast(`${PEOPLE[id].name} ${data.loungeMembers[id]?'joined':'left'} the lounge (demo)`);}
-    else if(act==='profile-action')openPanel(btn.dataset.kind,btn.dataset.id);
-    else if(act==='open-daily')openPanel('daily','lounge');
-    else if(act==='open-movies')openPanel('movies','jay');
-    else if(act==='gallery-photo'){const s={summer:['THE SUMMER TRIP','That train ride where we missed our stop and somehow had the best day.'],coffee:['THE COFFEE SPOT','The place we kept going to even when it was too crowded.'],rain:['THE RAINY AFTERNOON','We spent hours talking instead of going home.']}[btn.dataset.id];$('#gallery-story').innerHTML=`<b>${s[0]}</b><p>${s[1]}</p>`;}
+'use strict';
+const $ = s => document.querySelector(s);
+const house = $('#house-scene'), detail = $('#detail-layer'), detailImage=$('#detail-image'), map=$('#object-hits');
+const modal=$('#artifact'), backdrop=$('#dialog-backdrop'), body=$('#artifact-body');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+const NS='http://www.w3.org/2000/svg', ORIGINAL={x:0,y:0,w:1672,h:941};
+const ROOMS={
+ maya:{name:"Maya's room",eyebrow:'A ROOM FULL OF STORIES',center:[520,265],width:720,img:'./assets/rooms/maya.webp',anchor:[550,255],label:'Maya'},
+ jay:{name:"Jay's room",eyebrow:'THE SOUNDTRACK CORNER',center:[1168,263],width:750,img:'./assets/rooms/jay.webp',anchor:[1163,261],label:'Jay'},
+ lounge:{name:'The shared lounge',eyebrow:'THE PLACE WE SHARE',center:[840,616],width:1120,img:'./assets/rooms/lounge.webp',anchor:[820,607],label:'The lounge'}
+};
+const OBJECTS={
+ maya:[
+  {id:'books',label:'Bookcase',rect:[596,345,559,335],point:[865,385]},
+  {id:'daily',label:"Today's photo",rect:[1252,510,292,254],point:[1368,542]},
+  {id:'notes',label:'Letters & notes',rect:[1375,297,161,232],point:[1463,314]},
+  {id:'update',label:'Life lately',rect:[1180,570,171,160],point:[1284,583]}
+ ],
+ jay:[
+  {id:'movies',label:'Film wall',rect:[375,220,526,316],point:[620,260]},
+  {id:'vinyl',label:'Record player',rect:[340,537,452,183],point:[548,567]},
+  {id:'daily',label:"Today's photo",rect:[1305,577,259,230],point:[1395,590]},
+  {id:'notes',label:'Visitor notes',rect:[1330,402,177,168],point:[1410,414]},
+  {id:'update',label:'Life lately',rect:[1252,652,138,117],point:[1334,671]}
+ ],
+ lounge:[
+  {id:'tv',label:'Watch together',rect:[25,298,308,300],point:[218,326]},
+  {id:'gallery',label:'Our memories',rect:[460,188,471,303],point:[677,222]},
+  {id:'daily',label:"Today's photo",rect:[620,426,236,144],point:[745,435]},
+  {id:'notes',label:'Leave a note',rect:[598,548,255,131],point:[714,561]},
+  {id:'update',label:'Life lately',rect:[1076,405,247,170],point:[1170,423]}
+ ]
+};
+const INITIAL={
+ books:[{name:'The Creative Act',description:'A reminder to make things for the joy of it.',status:'reading',room:'maya'}, {name:'Crying in H Mart',description:'Still thinking about this one.',status:'favorites',room:'maya'}, {name:'Tomorrow, and Tomorrow, and Tomorrow',description:'I keep recommending this to friends.',status:'tbr',room:'maya'}],
+ movies:[{name:'Before Sunrise',description:'The conversations feel like coming home.',status:'favorites',room:'jay'}, {name:'Perfect Days',description:'A gentle reminder to notice ordinary things.',status:'recent',room:'jay'}, {name:'The Grand Budapest Hotel',description:'For the colors alone.',status:'watchlist',room:'jay'}],
+ vinyl:[{name:'Blonde — Frank Ocean',description:'For rainy afternoons.',status:'favorites',room:'jay'}, {name:'Currents — Tame Impala',description:'Still sounds like the future.',status:'favorites',room:'jay'}, {name:'In Rainbows — Radiohead',description:'No skips.',status:'favorites',room:'jay'}],
+ notes:[{room:'maya',from:'Jay',text:'Saw your favorite book today and immediately thought of you.',date:'Yesterday'}],
+ updates:{maya:'Trying to finish two books before the month ends. I keep making tea and finding reasons to stay in.',jay:'Found a tiny record shop I could spend three hours in. Currently playing everything on repeat.',lounge:'We still owe each other a movie night.'},
+ photos:{},presence:{maya:true,jay:false,you:true},loungeMembers:{maya:true,jay:false}
+};
+const key='the-house-demo-v4';
+function load(){try{const legacy=JSON.parse(localStorage.getItem(key)||'null');if(legacy?.version===4&&legacy.data){const v=legacy.data;const out=structuredClone(INITIAL);for(const k of Object.keys(out))if(v[k])out[k]=v[k];return out;}}catch{}return structuredClone(INITIAL);}
+const data=load();
+function store(){try{localStorage.setItem(key,JSON.stringify({version:4,data}));}catch{toast('Storage is full. Try a smaller image.');}}
+const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today=()=>new Date().toLocaleDateString('en-CA');
+let room=null, active=null, filter='all', selected=0, vinylPlaying=false, pendingPhoto=null;
+let camera={...ORIGINAL}, navToken=0, lastFocus=null, messageTimeout;
+const frames=['./assets/rooms/maya.webp','./assets/rooms/jay.webp','./assets/rooms/lounge.webp'];
+frames.forEach(src=>{const im=new Image();im.src=src;im.decoding='async';});
+function target(id){if(!id)return {...ORIGINAL};const r=ROOMS[id],b=house.getBoundingClientRect(),ratio=b.width/Math.max(1,b.height),w=r.width;return {x:r.center[0]-w/2,y:r.center[1]-w/ratio/2,w,h:w/ratio};}
+const ease=t=>{t=Math.max(0,Math.min(1,t));return 1-Math.pow(1-t,4);};
+const fade=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
+const mix=(a,b,t)=>a+(b-a)*t;
+function animate(from,to,duration,paint){return new Promise(resolve=>{if(reduce.matches||duration===0){paint(1);resolve();return;}const start=performance.now();const tick=now=>{const q=Math.max(0,Math.min(1,(now-start)/duration));paint(q);if(q<1)requestAnimationFrame(tick);else resolve();};requestAnimationFrame(tick);});}
+function writeCamera(v){camera=v;house.setAttribute('viewBox',`${v.x} ${v.y} ${v.w} ${v.h}`);}
+function renderNavigation(){const inside=Boolean(room);$('#room-navigation').hidden=!inside;$('#mobile-rooms').hidden=inside;$('#interaction-hint').hidden=!inside;$('#intro-hint').hidden=inside;$('#scene-heading').hidden=!inside;
+  if(inside){$('#scene-title').textContent=ROOMS[room].name;$('#scene-eyebrow').textContent=ROOMS[room].eyebrow;}
+  document.querySelectorAll('[data-nav]').forEach(btn=>btn.setAttribute('aria-current',String(btn.dataset.nav===room)));
+  $('#room-tip').hidden=true;$('#room-hits').hidden=inside;
+}
+async function enter(id){if(!ROOMS[id])return;if(active)closeArtifact();if(room===id)return;
+  if(room){await leave(true);}
+  const token=++navToken,from={...camera},to=target(id);room=id;renderNavigation();
+  detail.hidden=false;detail.style.opacity='0';detail.style.pointerEvents='none';
+  detailImage.src=ROOMS[id].img;detailImage.alt=ROOMS[id].name+' illustrated close-up';
+  drawObjects(id);
+  const loaded=detailImage.complete&&detailImage.naturalWidth>0;
+  await animate(from,to,reduce.matches?0:890,p=>{
+    if(token!==navToken)return;
+    const move=ease(Math.min(1,p/.87));writeCamera({x:mix(from.x,to.x,move),y:mix(from.y,to.y,move),w:mix(from.w,to.w,move),h:mix(from.h,to.h,move)});
+    const ready=(loaded||detailImage.complete&&detailImage.naturalWidth>0);
+    detail.style.opacity=String(ready?fade((p-.63)/.37):0);
   });
-  content.addEventListener('submit',e=>{
-    e.preventDefault();const id=e.target.id,room=panel?.room;if(!room)return;
-    if(id==='shelf-form'){const name=$('#shelf-name').value.trim(),description=$('#shelf-desc').value.trim(),kind=panel.kind;if(!name)return;data[kind].push({id:makeId(),room,name,description,icon:kind==='books'?'✳':kind==='movies'?'◈':'◎'});persist();renderPanel();toast('Added to the collection');}
-    if(id==='note-form'){const text=$('#note-text').value.trim();if(!text)return;data.notes.push({id:makeId(),room,text,from:'You',date:'Just now'});persist();renderPanel();toast('Letter left on the desk');}
-    if(id==='update-form'){const text=$('#update-text').value.trim();if(!text)return;data.updates[room]=text;persist();renderPanel();toast('Latest update saved');}
-    if(id==='daily-form'){if(!pendingPhoto)return;data.photos[room]={src:pendingPhoto,date:fmtToday(),caption:$('#daily-caption').value.trim()||'A little moment from today.'};pendingPhoto=null;persist();renderPanel();toast('Today’s photo pinned');}
-  });
-  let pendingPhoto=null;
-  content.addEventListener('change',async e=>{
-    if(e.target.id!=='daily-file')return;const file=e.target.files?.[0];if(!file)return;if(!file.type.startsWith('image/')){toast('Please choose an image.');return;}
-    try{const url=URL.createObjectURL(file),img=new Image();img.src=url;await img.decode();const max=720;const scale=Math.min(1,max/Math.max(img.width,img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);pendingPhoto=canvas.toDataURL('image/jpeg',.74);URL.revokeObjectURL(url);$('#daily-form').hidden=false;$('#daily-caption').focus();toast('Photo ready to pin');}catch{toast('Could not read that photo.');}
-  });
-  $('#return-home').addEventListener('click',home);
-  $('#show-help').addEventListener('click',()=>openPanel('help','lounge'));
-  $('#drawer-close').addEventListener('click',closePanel);
-  $('#drawer-backdrop').addEventListener('click',closePanel);
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(panel)closePanel();else if(currentRoom)home();}});
-  document.querySelectorAll('.room-hit').forEach(el=>{el.addEventListener('click',()=>enter(el.dataset.room));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter(el.dataset.room);}});});
-  buttons.forEach(b=>b.addEventListener('click',()=>{
-    const next=b.dataset.goto;
-    if(currentRoom===next){queuedRoom=null;home();}
-    else if(currentRoom){queuedRoom=next;home();}
-    else{queuedRoom=null;enter(next);}
-  }));
-  scene.addEventListener('click',e=>{return;if(!currentRoom||panel||e.target.closest('g[role=button]'))return;const pt=scene.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const mat=scene.getScreenCTM();if(!mat)return;const local=pt.matrixTransform(mat.inverse());const r=ROOMS[currentRoom],a=avatarState[r.actor],walk=r.walk;
-    // Keep movement constrained to a believable strip of visible floor, away from large furniture.
-    if(Math.abs(local.y-walk.y)>165)return;
-    a.targetX=Math.max(walk.lo,Math.min(walk.hi,local.x));
-  });
-  let lastRatio=scene.clientWidth/Math.max(1,scene.clientHeight);
-  window.addEventListener('resize',()=>{const ratio=scene.clientWidth/Math.max(1,scene.clientHeight);if(Math.abs(ratio-lastRatio)>.08){lastRatio=ratio;++animationSerial;cancelAnimationFrame(navigationFrame);view=targetView(currentRoom);scene.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);if(currentRoom){detailScene.style.opacity='1';detailScene.style.transform='scale(1)';detailScene.style.pointerEvents='auto';}}});
-  drawActors();drawHotspots();requestAnimationFrame(animate);
+  if(token!==navToken)return;
+  if(detailImage.complete&&detailImage.naturalWidth){detail.style.opacity='1';detail.style.pointerEvents='auto';}
+  else{detailImage.addEventListener('load',()=>{if(token!==navToken)return;detail.animate([{opacity:0},{opacity:1}],{duration:300,fill:'forwards'}).finished.then(()=>{if(token===navToken){detail.style.opacity='1';detail.style.pointerEvents='auto';}}).catch(()=>{});},{once:true});}
+}
+async function leave(forSwitch=false){if(!room)return;if(active)closeArtifact();const token=++navToken;room=null;renderNavigation();const from={...camera},to={...ORIGINAL},opacity=Number(detail.style.opacity||1);
+  detail.style.pointerEvents='none';
+  await animate(from,to,reduce.matches?0:850,p=>{if(token!==navToken)return;const move=ease(Math.max(0,(p-.18)/.82));writeCamera({x:mix(from.x,to.x,move),y:mix(from.y,to.y,move),w:mix(from.w,to.w,move),h:mix(from.h,to.h,move)});detail.style.opacity=String(mix(opacity,0,fade(p/.38)));});
+  if(token!==navToken)return;detail.hidden=true;detail.style.opacity='0';$('#object-hits').replaceChildren();
+}
+function drawObjects(id){map.replaceChildren();for(const x of OBJECTS[id]){
+  const group=document.createElementNS(NS,'g');group.classList.add('object-group');
+  const hit=document.createElementNS(NS,'rect');hit.setAttribute('class','object-hit');hit.setAttribute('x',x.rect[0]);hit.setAttribute('y',x.rect[1]);hit.setAttribute('width',x.rect[2]);hit.setAttribute('height',x.rect[3]);hit.setAttribute('rx','14');hit.setAttribute('tabindex','0');hit.setAttribute('role','button');hit.setAttribute('aria-label','Explore '+x.label);
+  const label=document.createElementNS(NS,'text');label.classList.add('hotspot-caption');label.setAttribute('x',x.point[0]);label.setAttribute('y',x.point[1]);label.setAttribute('text-anchor','middle');label.textContent=x.label;
+  const run=e=>{e.stopPropagation();openArtifact(x.id,id);};hit.addEventListener('click',run);hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run(e);}});
+  group.append(hit,label);map.appendChild(group);
+}}
+function roomHover(ev,id){const tip=$('#room-tip');if(!id||room){tip.hidden=true;return;}tip.hidden=false;tip.querySelector('.tip-name').textContent=ROOMS[id].name;const [x,y]=ROOMS[id].anchor,pt=house.createSVGPoint();pt.x=x;pt.y=y;const pixel=pt.matrixTransform(house.getScreenCTM());const b=$('#stage').getBoundingClientRect();tip.style.left=(pixel.x-b.left)+'px';tip.style.top=(pixel.y-b.top)+'px';}
+for(const el of document.querySelectorAll('.room-hit')){el.addEventListener('pointerenter',()=>roomHover(null,el.dataset.room));el.addEventListener('pointerleave',()=>roomHover(null,null));el.addEventListener('focus',()=>roomHover(null,el.dataset.room));el.addEventListener('blur',()=>roomHover(null,null));el.addEventListener('click',()=>enter(el.dataset.room));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter(el.dataset.room);}});}
+document.querySelectorAll('[data-mobile-room]').forEach(button=>button.addEventListener('click',()=>enter(button.dataset.mobileRoom)));
+$('#brand-home').addEventListener('click',()=>{if(room)leave();else window.scrollTo({top:0,behavior:'smooth'});});
+document.querySelectorAll('[data-nav]').forEach(btn=>btn.addEventListener('click',async()=>{if(btn.dataset.nav==='home'){await leave();return;}await enter(btn.dataset.nav);}));
+$('#circle-trigger').addEventListener('click',()=>{const menu=$('#circle-menu');menu.hidden=!menu.hidden;$('#circle-trigger').setAttribute('aria-expanded',String(!menu.hidden));});
+document.addEventListener('click',e=>{if(!e.target.closest('#circle-menu')&&!e.target.closest('#circle-trigger')){$('#circle-menu').hidden=true;$('#circle-trigger').setAttribute('aria-expanded','false');}});
+let resizeTimer=0;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{++navToken;writeCamera(target(room));if(room){detail.style.opacity='1';detail.style.pointerEvents='auto';}},140);});
+const toggle=(items,chosen)=>items.map(x=>`<button type="button" role="tab" aria-selected="${chosen===x[0]}" data-filter="${x[0]}">${x[1]}</button>`).join('');
+const display=(cls,inner,mark='A PERSONAL OBJECT')=>`<div class="art-display ${cls}">${inner}<span class="display-label">${mark}</span></div>`;
+const headings={books:'The bookshelf',movies:'The movie wall',vinyl:'The record collection',daily:"Today's little moment",notes:'Letters left behind',update:'Life lately',gallery:'The photo wall',tv:'Movie night'};
+const sublines={books:'A glimpse into the stories on the shelf.',movies:'The films that keep coming up in conversation.',vinyl:'Albums worth listening to all the way through.',daily:'One photo, one small moment of an ordinary day.',notes:'Something personal, waiting to be discovered.',update:'The kind of thing you might mention over coffee.',gallery:'Some moments deserve a place on the wall.',tv:'A starting point for your next movie night.'};
+function template(left,right){return `<div class="artefact-layout">${left}<div class="content-pane">${right}</div></div>`;}
+const title=(name,copy,extra='')=>`<span class="overline">${extra||'A SMALL DISCOVERY'}</span><h2>${name}</h2><p class="lead">${copy}</p>`;
+function itemsFor(kind,loc){let arr=(data[kind]||[]).filter(x=>x.room===loc);return arr;}
+function matches(s,kind){const status=s.status||'favorites';return filter==='all'||status===filter;}
+function media(kind,id){const entries=itemsFor(kind,id);const settings=kind==='books'?[['reading','Reading'],['tbr','To read'],['favorites','Favorites']]:kind==='movies'?[['favorites','Favorites'],['watchlist','Must watch'],['recent','Recently watched']]:[['all','Collection']];
+ const allowed=entries.filter(x=>matches(x,kind));const picked=allowed[Math.min(selected,Math.max(0,allowed.length-1))]||entries[0];
+ const spines=kind==='books'?`<div class="shelf-illustration">${entries.slice(0,6).map((x,i)=>`<button type="button" data-pick="${i}" aria-label="Select ${safe(x.name)}" class="book-spine ${picked===x?'is-current':''}">${safe(x.name)}</button>`).join('')}</div>`:kind==='movies'?`<div class="film-grid">${entries.slice(0,3).map((x,i)=>`<button type="button" data-pick="${i}" aria-label="Select ${safe(x.name)}" class="film-poster ${picked===x?'is-current':''}"><span class="film-symbol">✳</span><b>${safe(x.name)}</b></button>`).join('')}</div>`:`<div class="record-scene"><div class="vinyl-sleeve"><div><p>From Jay's collection</p><h3>${safe(picked?.name||'A record')}</h3></div></div><button id="vinyl-disc" class="vinyl-disc ${vinylPlaying?'is-playing':''}" aria-label="${vinylPlaying?'Stop':'Spin'} record" title="Spin or stop the record" type="button"></button></div>`;
+ const art=display(kind==='books'?'wood':kind==='movies'?'warm':'wood',spines,kind==='books'?'ON THE SHELF':kind==='movies'?'ON THE WALL':'ON THE TURNTABLE');
+ const rows=allowed.map((x,i)=>`<button type="button" data-select="${i}" aria-pressed="${picked===x}" class="detail-row"><div><strong>${safe(x.name)}</strong><span>${safe(x.description)}</span></div><span class="chevron">↗</span></button>`).join('')||'<p class="detail-empty">Nothing here yet. Add something you love.</p>';
+ return template(art,`${title(headings[kind],sublines[kind],kind==='books'?'MAYA · READING ROOM':kind==='movies'?'JAY · THE FILM WALL':'JAY · RECORD SHELF')}<div class="segmented" role="tablist">${toggle(settings,filter)}</div><div class="detail-list">${rows}</div>${picked?`<p class="selected-note">“${safe(picked.description)}”</p>`:''}<button class="form-trigger" data-action="compose">+ Add to ${kind==='vinyl'?'the collection':'the wall'} <span>↗</span></button><div id="compose-area" hidden></div>`);
+}
+function moment(id){const photo=data.photos[id];const image=photo?.src?`<img alt="Today's photo" src="${photo.src}">`:`<span>${id==='maya'?'The small things':id==='jay'?'What today sounded like':'A day together'}</span>`;
+const polaroid=display('photo-tone',`<div class="polaroid"><div class="polaroid-image">${image}</div><div class="polaroid-caption">${safe(photo?.caption||'a little moment from today')}</div></div>`,'A PHOTO FOR TODAY');
+return template(polaroid,`${title("Today's photograph",'A tiny window into what today looked like. No endless feed, just one moment.',id==='lounge'?'FROM THE LOUNGE':id==='maya'?"FROM MAYA'S DESK":"FROM JAY'S DESK")}${photo?`<p class="mini-info">Pinned ${safe(photo.date||'recently')}</p>`:'<p class="mini-info">A new photo can live here each day.</p>'}<button class="form-trigger" data-action="compose">${photo?'↗ Replace today’s photo':'+ Pin today’s photo'} </button><div id="compose-area" hidden></div><p class="fine-print">Photos in this prototype are stored on this device only.</p>`);
+}
+function notes(id){const entries=(data.notes||[]).filter(n=>n.room===id).slice().reverse();const n=entries[0];
+return template(display('wood',`<div class="note-sheet"><strong>Dear ${id==='lounge'?'friends':id==='maya'?'Maya':'Jay'},</strong><p>${safe(n?.text||'A little note will be waiting here soon.')}</p><small>${safe(n?.from||'From a friend')}</small></div>`,'THE WRITING DESK'),`${title('A note to you','More personal than a reaction. Leave a few words behind.',id==='lounge'?'IN THE LOUNGE':'ON THE DESK')}<div class="detail-list">${entries.map((e,i)=>`<div class="detail-row"><div><strong>${safe(e.from||'A friend')}</strong><span>${safe(e.text)}</span></div></div>`).join('')||'<p class="detail-empty">No notes here yet.</p>'}</div><button class="form-trigger" data-action="compose">+ Write a letter <span>↗</span></button><div id="compose-area" hidden></div><p class="fine-print">Notes remain in your browser for now and are not delivered to other people.</p>`);
+}
+function update(id){const t=data.updates[id]||'Nothing new yet.';
+return template(display('photo-tone',`<div class="update-note"><b>Life lately.</b><p>${safe(t)}</p></div>`,'A LITTLE UPDATE'),`${title('Life lately','Not everything needs a full conversation.',id==='lounge'?'FROM YOUR CIRCLE':'A NOTE FROM THE ROOM')}<p class="selected-note">“${safe(t)}”</p><button class="form-trigger" data-action="compose">✎ Write an update <span>↗</span></button><div id="compose-area" hidden></div><p class="fine-print">Updates in this demo are only saved to this browser.</p>`);
+}
+const memories=[{name:'The summer trip',description:'We missed the train stop and ended up having the best day.'},{name:'That coffee place',description:'The place we kept returning to, even when it was way too crowded.'},{name:'The rainy afternoon',description:'Three hours talking when we were supposed to go home.'}];
+function gallery(){const m=memories[selected]||memories[0];const art=display('warm',`<div class="postcards">${memories.map((x,i)=>`<button class="postcard" data-select="${i}" aria-pressed="${selected===i}"><b>${safe(x.name)}</b><span>ONE FOR THE WALL</span></button>`).join('')}</div>`,'MEMORIES TO KEEP');
+return template(art,`${title('The photo wall','The stories that only make sense to your group.','THE SHARED LOUNGE')}<p class="selected-note">“${safe(m.description)}”</p><div class="detail-list">${memories.map((x,i)=>`<button class="detail-row" data-select="${i}" aria-pressed="${selected===i}"><strong>${safe(x.name)}</strong><span class="chevron">↗</span></button>`).join('')}</div><button class="form-trigger" data-action="go-daily">+ Add a daily photo <span>↗</span></button>`);
+}
+function tv(){const first=(data.movies||[]).find(x=>x.room==='jay');return template(display('wood',`<div class="screen-tv"><span>Tonight's idea</span><strong>${safe(first?.name||'Movie night')}</strong></div>`,'THE TV CABINET'),`${title('Movie night','The little ritual of choosing something together.','IN THE LOUNGE')}<p class="selected-note">“${safe(first?.description||'There is always something good to watch.')}”</p><button class="form-trigger" data-action="go-movies">Explore Jay's watchlist <span>↗</span></button><p class="fine-print">This is a shared watchlist concept, not a streaming service.</p>`);}
+function artifactContent(){if(!active)return '';const {kind,place}=active;return ['books','movies','vinyl'].includes(kind)?media(kind,place):kind==='daily'?moment(place):kind==='notes'?notes(place):kind==='update'?update(place):kind==='gallery'?gallery():kind==='tv'?tv():'';}
+function renderArtifact(){body.innerHTML=artifactContent();const heading=headings[active.kind]||'A little discovery';$('#artifact-kicker').textContent=active.place==='lounge'?'THE LOUNGE':ROOMS[active.place]?.name||'A ROOM';$('#artifact-index').textContent=heading;}
+function openArtifact(kind,place){lastFocus=document.activeElement;active={kind,place};filter=kind==='books'?'reading':kind==='movies'?'favorites':'all';selected=0;vinylPlaying=false;pendingPhoto=null;renderArtifact();modal.hidden=false;backdrop.hidden=false;document.body.style.overflow='hidden';$('#artifact-close').focus();}
+function closeArtifact(){active=null;modal.hidden=true;backdrop.hidden=true;document.body.style.overflow='';lastFocus?.focus?.();}
+$('#artifact-close').addEventListener('click',closeArtifact);backdrop.addEventListener('click',closeArtifact);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(active)closeArtifact();else if(room)leave();else $('#circle-menu').hidden=true;return;}if(e.key==='Tab'&&active){const tabbable=[...modal.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled])')].filter(x=>!x.closest('[hidden]'));if(!tabbable.length)return;const first=tabbable[0],last=tabbable[tabbable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
+function composition(){if(!active)return '';const k=active.kind;if(['books','movies','vinyl'].includes(k)){const label=k==='books'?'Book title':k==='movies'?'Film title':'Artist — album';const options=k==='books'?'<option value="reading">Reading</option><option value="tbr">To read</option><option value="favorites">Favorite</option>':k==='movies'?'<option value="favorites">Favorite</option><option value="watchlist">Must watch</option><option value="recent">Recently watched</option>':'<option value="favorites">On the shelf</option>';return `<form class="form-area" id="compose-form"><label class="form-label" for="compose-name">${label}</label><input class="field" id="compose-name" name="title" required maxlength="100" placeholder="${label}"/><label class="form-label" for="compose-note">Your note</label><textarea id="compose-note" class="field textarea" name="note" maxlength="220" placeholder="Why does it belong here?"></textarea><label class="form-label" for="compose-status">Shelf</label><select class="field" id="compose-status" name="status">${options}</select><button class="primary-action" type="submit">Place in the room <span>↗</span></button></form>`;}
+if(k==='daily')return `<form class="form-area" id="compose-form"><label class="form-label" for="photo-file">Today's photo</label><input type="file" class="field" id="photo-file" accept="image/*" required/><label class="form-label" for="photo-caption">A few words</label><input class="field" id="photo-caption" maxlength="140" placeholder="Something about today"/><button class="primary-action" type="submit">Pin the photograph ↗</button></form>`;
+if(k==='notes')return `<form class="form-area" id="compose-form"><label class="form-label" for="note-from">From</label><input class="field" id="note-from" maxlength="35" value="You" required/><label class="form-label" for="note-message">Your letter</label><textarea class="field textarea" id="note-message" maxlength="350" required placeholder="Something you wanted to say…"></textarea><button class="primary-action" type="submit">Leave the letter ↗</button></form>`;
+if(k==='update')return `<form class="form-area" id="compose-form"><label class="form-label" for="update-message">Life lately</label><textarea class="field textarea" id="update-message" maxlength="300" required placeholder="What happened this week?">${safe(data.updates[active.place]||'')}</textarea><button class="primary-action" type="submit">Pin this update ↗</button></form>`;return '';}
+body.addEventListener('click',e=>{const action=e.target.closest('[data-action]');if(action){const a=action.dataset.action;if(a==='compose'){const box=$('#compose-area');box.hidden=!box.hidden;if(!box.hidden){box.innerHTML=composition();box.querySelector('input,textarea')?.focus();}}else if(a==='go-movies')openArtifact('movies','jay');else if(a==='go-daily')openArtifact('daily','lounge');return;}
+const filt=e.target.closest('[data-filter]');if(filt){filter=filt.dataset.filter;selected=0;renderArtifact();return;}
+const pick=e.target.closest('[data-pick],[data-select]');if(pick){selected=Number(pick.dataset.pick??pick.dataset.select)||0;renderArtifact();return;}
+if(e.target.closest('#vinyl-disc')){vinylPlaying=!vinylPlaying;$('#vinyl-disc').classList.toggle('is-playing',vinylPlaying);return;}
+});
+body.addEventListener('submit',async e=>{if(e.target.id!=='compose-form'||!active)return;e.preventDefault();const {kind,place}=active;let message='Saved to this room';
+if(['books','movies','vinyl'].includes(kind)){const f=e.target;const name=f.elements.title.value.trim();if(!name)return;data[kind].push({name,description:f.elements.note.value.trim(),status:f.elements.status.value,room:place,id:Date.now().toString()});filter=f.elements.status.value;selected=0;message='Added to the collection';}
+if(kind==='notes'){const name=$('#note-from').value.trim(),text=$('#note-message').value.trim();if(!text)return;data.notes.push({from:name||'You',text,room:place,date:'Just now'});message='Letter left on the desk';}
+if(kind==='update'){data.updates[place]=$('#update-message').value.trim();message='Latest update pinned';}
+if(kind==='daily'){const file=$('#photo-file').files?.[0];if(!file||!file.type.startsWith('image/'))return;try{const uri=URL.createObjectURL(file),img=new Image();img.src=uri;await img.decode();const scale=Math.min(1,700/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);data.photos[place]={src:canvas.toDataURL('image/jpeg',.68),date:today(),caption:$('#photo-caption').value.trim()||'Today, in one photo.'};URL.revokeObjectURL(uri);message='Today’s photo pinned';}catch{toast('This photo could not be read.');return;}}
+store();renderArtifact();toast(message);});
+function toast(text){const el=$('#toast');el.textContent=text;el.hidden=false;clearTimeout(messageTimeout);messageTimeout=setTimeout(()=>el.hidden=true,2600);}
+renderNavigation();
 })();
