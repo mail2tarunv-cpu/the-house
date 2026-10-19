@@ -306,30 +306,42 @@ async function mayaAct(action,{instant=false}={}){
   finish();
 }
 function setMayaPose(name){mayaAct(name);}
-// Ambient routine: Maya lives in the room without visitors operating a pose switcher.
+// A calm, intentional loop: hold an activity, then walk directly to the next
+// station ONCE. No generic back-and-forth patrol and no timed interruptions.
 const MAYA_ROUTINES={
   maya:[
-    {action:'idle',hold:2800},{action:'walk',hold:4800},
-    {action:'read',hold:9800},{action:'idle',hold:2600},
-    {action:'walk',hold:4200},{action:'plant',hold:7800}
+    {action:'idle',hold:4700},
+    {action:'read',hold:10500},
+    {action:'plant',hold:8200}
   ],
   lounge:[
-    {action:'idle',hold:2900},{action:'walk',hold:4300},
-    {action:'relax',hold:9000},{action:'idle',hold:3300},
-    {action:'walk',hold:3700},{action:'plant',hold:7700}
+    {action:'idle',hold:5400},
+    {action:'relax',hold:11000},
+    {action:'plant',hold:9000}
   ]
 };
-let mayaRoutineTimer=0,mayaRoutineCursor={maya:0,lounge:0};
-function mayaStopRoutine(){clearTimeout(mayaRoutineTimer);mayaRoutineTimer=0;}
-function mayaNextRoutine(){
+let mayaRoutineTimer=0,mayaRoutineGeneration=0;
+const mayaRoutineCursor={maya:0,lounge:0};
+function mayaStopRoutine(){
+  ++mayaRoutineGeneration;
+  clearTimeout(mayaRoutineTimer);
+  mayaRoutineTimer=0;
+}
+async function mayaNextRoutine(){
   mayaStopRoutine();
   if(!MAYA_POSES[room]||document.hidden||active||mayaCharacter.hidden)return;
-  if(reduce.matches){mayaAct('idle',{instant:true});return;}
-  const place=room,steps=MAYA_ROUTINES[place];
+  const place=room,generation=mayaRoutineGeneration;
+  if(reduce.matches){await mayaAct('idle',{instant:true});return;}
+  const steps=MAYA_ROUTINES[place];
   const step=steps[mayaRoutineCursor[place]++%steps.length];
-  mayaAct(step.action);
+  // The animation is allowed to complete before the activity's dwell timer
+  // begins. This prevents the next action from interrupting the current walk.
+  const alreadyThere=mayaCurrent[place]===step.action&&!mayaStage.active;
+  await mayaAct(step.action,{instant:alreadyThere});
+  if(generation!==mayaRoutineGeneration||room!==place||document.hidden||active||mayaCharacter.hidden)return;
   mayaRoutineTimer=setTimeout(()=>{
-    if(room===place&&!document.hidden&&!active)mayaNextRoutine();
+    if(generation===mayaRoutineGeneration&&room===place&&!document.hidden&&!active&&!mayaCharacter.hidden)
+      mayaNextRoutine();
   },step.hold);
 }
 function mayaShow(){
@@ -362,12 +374,13 @@ function mayaOverviewPaint(src,x){
 }
 function mayaOverviewTick(now){
   if(room||document.hidden){mayaOverviewRaf=0;return;}
-  const cycle=(now-mayaOverviewOrigin)%16600;
+  // One walk, then a long pause. The return trip is a separate deliberate walk.
+  const cycle=(now-mayaOverviewOrigin)%32000;
   let x=651,walk=false,left=false;
-  if(cycle<3500){x=651;}
-  else if(cycle<7300){walk=true;x=651+65*(cycle-3500)/3800;}
-  else if(cycle<9900){x=716;}
-  else if(cycle<13700){walk=true;left=true;x=716-65*(cycle-9900)/3800;}
+  if(cycle<8500){x=651;}
+  else if(cycle<11500){walk=true;x=651+65*(cycle-8500)/3000;}
+  else if(cycle<23000){x=716;}
+  else if(cycle<26000){walk=true;left=true;x=716-65*(cycle-23000)/3000;}
   else{x=651;}
   let src=MAYA_OVERVIEW_IDLE;
   if(walk){
