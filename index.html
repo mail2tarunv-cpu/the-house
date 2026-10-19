@@ -7,8 +7,8 @@
 <meta name="description" content="A little place for your people. Explore the stories in your friends' rooms." />
 <title>The House — A place for your people</title>
 <link rel="preload" href="./assets/house-approved.webp" as="image" type="image/webp" />
-<link rel="stylesheet" href="./styles.css?v=9" />
-<script defer src="./app.js?v=9"></script>
+<link rel="stylesheet" href="./styles.css?v=10" />
+<script defer src="./app.js?v=10"></script>
 </head>
 <body>
 <div class="app">
@@ -36,6 +36,11 @@
           <g id="object-hits"></g>
         </svg>
       </div>
+      <nav id="mobile-rooms" class="mobile-rooms" aria-label="Enter a room" hidden>
+        <button type="button" data-mobile-room="maya">Maya ↗</button>
+        <button type="button" data-mobile-room="jay">Jay ↗</button>
+        <button type="button" data-mobile-room="lounge">Lounge ↗</button>
+      </nav>
       <div id="room-tip" class="room-tip" hidden><span class="tip-name"></span><span class="tip-action">Enter room ↗</span></div>
       <div class="scene-heading" id="scene-heading" hidden><span id="scene-eyebrow">PERSONAL SPACE</span><h1 id="scene-title">Maya's room</h1></div>
       <div id="intro-hint" class="intro-hint">A little world to explore <span aria-hidden="true">↗</span></div>
@@ -48,19 +53,17 @@
         <button data-nav="jay" class="nav-room">Jay</button>
         <button data-nav="lounge" class="nav-room">Lounge</button>
       </div>
-      <div id="mobile-rooms" class="mobile-rooms" hidden aria-label="Choose a room">
-        <button type="button" data-mobile-room="maya">Maya</button>
-        <button type="button" data-mobile-room="jay">Jay</button>
-        <button type="button" data-mobile-room="lounge">Lounge</button>
+      <div class="object-tooltip" id="object-tooltip" hidden><span class="tooltip-pin"></span><span id="tooltip-text">Explore</span><span class="tooltip-arrow">↗</span></div>
+      <div class="object-discovery" id="object-discovery" hidden>
+        <button type="button" id="object-discovery-trigger" class="object-discovery-trigger" aria-expanded="false" aria-controls="object-discovery-menu"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>Objects</span><span id="object-count">4</span></button>
+        <div class="object-discovery-menu" id="object-discovery-menu" hidden></div>
       </div>
-      <div id="object-discovery" class="object-discovery" hidden><button type="button" id="objects-button" class="objects-button" aria-expanded="false" aria-controls="objects-menu">Objects <span id="objects-count"></span></button><div id="objects-menu" class="objects-menu" hidden></div></div><div id="object-tooltip" class="object-tooltip" hidden></div>
     </div>
   </main>
-  <footer class="subfooter"><span>OUR LITTLE CORNER OF THE INTERNET</span><span class="proto-note">A local, interactive prototype</span></footer>
 </div>
 <div id="dialog-backdrop" class="dialog-backdrop" hidden></div>
 <section id="artifact" class="artifact" role="dialog" aria-modal="true" aria-label="Explore an object" hidden>
-  <div class="artifact-top"><div class="artifact-meta"><span class="topline" id="artifact-kicker">FROM THE ROOM</span><span class="artifact-index" id="artifact-index"></span></div><button id="artifact-close" class="close-button" aria-label="Close and return to the room">×</button></div>
+  <div class="artifact-top"><div class="artifact-meta"><span class="topline" id="artifact-kicker">FROM THE ROOM</span><span class="artifact-index" id="artifact-index"></span></div><button id="artifact-close" class="close-button" aria-label="Close and return to the room"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div>
   <div id="artifact-body" class="artifact-body"></div>
 </section>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

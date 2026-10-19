@@ -56,7 +56,7 @@ const fade=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
 const mix=(a,b,t)=>a+(b-a)*t;
 function animate(from,to,duration,paint){return new Promise(resolve=>{if(reduce.matches||duration===0){paint(1);resolve();return;}const start=performance.now();const tick=now=>{const q=Math.max(0,Math.min(1,(now-start)/duration));paint(q);if(q<1)requestAnimationFrame(tick);else resolve();};requestAnimationFrame(tick);});}
 function writeCamera(v){camera=v;house.setAttribute('viewBox',`${v.x} ${v.y} ${v.w} ${v.h}`);}
-function renderNavigation(){const inside=Boolean(room);$('#room-navigation').hidden=!inside;$('#mobile-rooms').hidden=inside;$('#object-discovery').hidden=!inside;objectMenu.hidden=true;objectsButton.setAttribute('aria-expanded','false');hideObjectTip();$('#intro-hint').hidden=inside;$('#scene-heading').hidden=!inside;
+function renderNavigation(){const inside=Boolean(room);$('#room-navigation').hidden=!inside;$('#mobile-rooms').hidden=inside;$('#object-discovery').hidden=!inside;objectMenu.hidden=true;objectButton.setAttribute('aria-expanded','false');hideObjectTooltip();$('#intro-hint').hidden=inside;$('#scene-heading').hidden=!inside;
   if(inside){$('#scene-title').textContent=ROOMS[room].name;$('#scene-eyebrow').textContent=ROOMS[room].eyebrow;}
   document.querySelectorAll('[data-nav]').forEach(btn=>btn.setAttribute('aria-current',String(btn.dataset.nav===room)));
   $('#room-tip').hidden=true;$('#room-hits').hidden=inside;
@@ -83,22 +83,48 @@ async function leave(forSwitch=false){if(!room)return;if(active)closeArtifact();
   await animate(from,to,reduce.matches?0:850,p=>{if(token!==navToken)return;const move=ease(Math.max(0,(p-.18)/.82));writeCamera({x:mix(from.x,to.x,move),y:mix(from.y,to.y,move),w:mix(from.w,to.w,move),h:mix(from.h,to.h,move)});detail.style.opacity=String(mix(opacity,0,fade(p/.38)));});
   if(token!==navToken)return;detail.hidden=true;detail.style.opacity='0';$('#object-hits').replaceChildren();
 }
-const objectTip=$('#object-tooltip'), objectMenu=$('#objects-menu'), objectsButton=$('#objects-button');
-function hideObjectTip(){objectTip.hidden=true;}
-function objectTipAt(item){if(!room||active)return;const svg=$('#object-map'),m=svg.getScreenCTM();if(!m)return;const pt=svg.createSVGPoint();pt.x=item.point[0];pt.y=item.point[1];const p=pt.matrixTransform(m),rect=$('#stage').getBoundingClientRect();objectTip.textContent=item.label+' ↗';objectTip.style.left=Math.max(78,Math.min(rect.width-78,p.x-rect.left))+'px';objectTip.style.top=Math.max(44,Math.min(rect.height-40,p.y-rect.top-22))+'px';objectTip.hidden=false;}
-function drawObjects(id){map.replaceChildren();objectMenu.replaceChildren();$('#objects-count').textContent=OBJECTS[id].length;
-for(const item of OBJECTS[id]){
- const b=document.createElement('button');b.type='button';b.className='objects-item';b.innerHTML='<span>'+safe(item.label)+'</span><span aria-hidden="true">↗</span>';b.addEventListener('click',()=>{objectMenu.hidden=true;objectsButton.setAttribute('aria-expanded','false');openArtifact(item.id,id);});objectMenu.appendChild(b);
- const hit=document.createElementNS(NS,'rect');for(const [k,v] of Object.entries({x:item.rect[0],y:item.rect[1],width:item.rect[2],height:item.rect[3],rx:8}))hit.setAttribute(k,v);
- hit.setAttribute('class','object-hit');hit.setAttribute('tabindex','0');hit.setAttribute('role','button');hit.setAttribute('aria-label','Explore '+item.label);
- hit.addEventListener('pointerenter',()=>objectTipAt(item));hit.addEventListener('pointerleave',hideObjectTip);
- hit.addEventListener('focus',()=>objectTipAt(item));hit.addEventListener('blur',hideObjectTip);
- const run=e=>{e.stopPropagation();hideObjectTip();openArtifact(item.id,id,hit);};
- hit.addEventListener('click',run);hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run(e);}});
- map.appendChild(hit);
-}}
-objectsButton.addEventListener('click',()=>{const opening=objectMenu.hidden;objectMenu.hidden=!opening;objectsButton.setAttribute('aria-expanded',String(opening));hideObjectTip();});
-document.addEventListener('pointerdown',e=>{if(!e.target.closest('#object-discovery')){objectMenu.hidden=true;objectsButton.setAttribute('aria-expanded','false');}});
+const objectTooltip=$('#object-tooltip');
+const objectMenu=$('#object-discovery-menu');
+const objectButton=$('#object-discovery-trigger');
+function hideObjectTooltip(){objectTooltip.hidden=true;}
+function showObjectTooltip(hit,item){
+  if(!room||active)return;
+  const matrix=$('#object-map').getScreenCTM(); if(!matrix)return;
+  const pt=$('#object-map').createSVGPoint();
+  pt.x=item.point[0];pt.y=item.point[1];
+  const point=pt.matrixTransform(matrix),stage=$('#stage').getBoundingClientRect();
+  $('#tooltip-text').textContent=item.label;
+  const x=Math.max(95,Math.min(stage.width-95,point.x-stage.left));
+  const y=Math.max(53,Math.min(stage.height-56,point.y-stage.top-28));
+  objectTooltip.style.left=x+'px';objectTooltip.style.top=y+'px';objectTooltip.hidden=false;
+}
+function populateObjects(id){
+  objectMenu.replaceChildren();
+  for(const item of OBJECTS[id]){
+    const btn=document.createElement('button');btn.type='button';btn.className='discovery-item';
+    btn.textContent=item.label;btn.setAttribute('aria-label','Explore '+item.label);
+    btn.addEventListener('click',()=>{objectMenu.hidden=true;objectButton.setAttribute('aria-expanded','false');openArtifact(item.id,id);});
+    objectMenu.appendChild(btn);
+  }
+  $('#object-count').textContent=String(OBJECTS[id].length);
+}
+function drawObjects(id){map.replaceChildren();populateObjects(id);
+ for(const item of OBJECTS[id]){
+   const hit=document.createElementNS(NS,'rect');hit.setAttribute('class','object-hit');
+   for (const [key,val] of Object.entries({x:item.rect[0],y:item.rect[1],width:item.rect[2],height:item.rect[3],rx:8}))hit.setAttribute(key,String(val));
+   hit.setAttribute('tabindex','0');hit.setAttribute('role','button');hit.setAttribute('aria-label','Explore '+item.label);
+   hit.addEventListener('pointerenter',()=>showObjectTooltip(hit,item));
+   hit.addEventListener('pointerleave',hideObjectTooltip);
+   hit.addEventListener('focus',()=>showObjectTooltip(hit,item));
+   hit.addEventListener('blur',hideObjectTooltip);
+   const run=e=>{e.stopPropagation();hideObjectTooltip();openArtifact(item.id,id,hit);};
+   hit.addEventListener('click',run);
+   hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();run(e);}});
+   map.appendChild(hit);
+ }
+}
+objectButton.addEventListener('click',()=>{const open=objectMenu.hidden;objectMenu.hidden=!open;objectButton.setAttribute('aria-expanded',String(open));hideObjectTooltip();});
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#object-discovery')){objectMenu.hidden=true;objectButton.setAttribute('aria-expanded','false');}});
 function roomHover(ev,id){const tip=$('#room-tip');if(!id||room){tip.hidden=true;return;}tip.hidden=false;tip.querySelector('.tip-name').textContent=ROOMS[id].name;const [x,y]=ROOMS[id].anchor,pt=house.createSVGPoint();pt.x=x;pt.y=y;const pixel=pt.matrixTransform(house.getScreenCTM());const b=$('#stage').getBoundingClientRect();tip.style.left=(pixel.x-b.left)+'px';tip.style.top=(pixel.y-b.top)+'px';}
 for(const el of document.querySelectorAll('.room-hit')){el.addEventListener('pointerenter',()=>roomHover(null,el.dataset.room));el.addEventListener('pointerleave',()=>roomHover(null,null));el.addEventListener('focus',()=>roomHover(null,el.dataset.room));el.addEventListener('blur',()=>roomHover(null,null));el.addEventListener('click',()=>enter(el.dataset.room));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter(el.dataset.room);}});}
 document.querySelectorAll('[data-mobile-room]').forEach(button=>button.addEventListener('click',()=>enter(button.dataset.mobileRoom)));
@@ -115,62 +141,73 @@ function template(left,right){return `<div class="artefact-layout">${left}<div c
 const title=(name,copy,extra='')=>`<span class="overline">${extra||'A SMALL DISCOVERY'}</span><h2>${name}</h2><p class="lead">${copy}</p>`;
 function itemsFor(kind,loc){let arr=(data[kind]||[]).filter(x=>x.room===loc);return arr;}
 function matches(s,kind){const status=s.status||'favorites';return filter==='all'||status===filter;}
-function roomCrop(kind,place,selectedName){
- const configs={books:[54,66],movies:[30,27],vinyl:[25,92]};
- const pos=configs[kind]||[50,50], label=kind==='books'?'MAYA\u2019S BOOKSHELF':kind==='movies'?'JAY\u2019S MOVIE WALL':'JAY\u2019S RECORD COLLECTION';
- const disc=kind==='vinyl'?'<button type="button" id="vinyl-disc" class="live-record '+(vinylPlaying?'is-playing':'')+'" aria-label="Spin or stop the record"></button>':'';
- return '<div class="room-crop" style="background-image:url('+ROOMS[place].img+');background-size:260% auto;background-position:'+pos[0]+'% '+pos[1]+'%">'+disc+'<div class="crop-shade"><span>'+label+'</span><strong>'+safe(selectedName||'A little collection')+'</strong></div></div>';
+function cropArt(name,heading,selectedText='',extra=''){
+ const file='./assets/details/'+name+'.webp';
+ return `<div class="object-art-view" style="--object-image:url('${file}')">
+ <div class="object-art-photo" role="img" aria-label="Detail from the illustrated room"></div>
+ ${extra}<div class="object-art-footer"><span class="object-art-mark">${safe(heading)}</span>${selectedText?`<strong>${safe(selectedText)}</strong>`:''}</div>
+ </div>`;
 }
-function bookJacket(t,i){const color=['#9c7558','#4a6c5c','#ad7e65','#577083'][i%4];return '<div class="new-book-cover" style="--jacket:'+color+'"><small>PERSONAL LIBRARY</small><span class="new-cover-emblem" aria-hidden="true"></span><strong>'+safe(t)+'</strong><small>THE HOUSE · STORIES WORTH KEEPING</small></div>';}
+function coverType(title,index=0){
+ const palette=['ochre','forest','clay','blue','cream'];
+ const words=String(title||'Untitled').replace(/\s+[—–]\s+.*$/,'');
+ return `<div class="edition-cover edition-cover--${palette[index%palette.length]}"><div class="edition-grain"></div><span class="edition-top">THE HOUSE · PERSONAL COLLECTION</span><span class="edition-sun" aria-hidden="true"></span><strong>${safe(words)}</strong><span class="edition-foot">A LITTLE STORY WORTH KEEPING</span></div>`;
+}
 function media(kind,id){
- const things=itemsFor(kind,id);
- const tabs=kind==='books'?[['reading','Reading'],['tbr','To read'],['favorites','Favorites']]:kind==='movies'?[['favorites','Favorites'],['watchlist','Watchlist'],['recent','Recent']]:[['all','Collection']];
- const rows=things.filter(x=>matches(x,kind)),idx=Math.min(selected,Math.max(0,rows.length-1)),pick=rows[idx];
- const heading=kind==='books'?'Maya’s bookshelf':kind==='movies'?'Jay’s movie wall':'Jay’s records';
- const summary=kind==='books'?'Stories she’s reading, saving and recommending.':kind==='movies'?'Movies that stay in your head long after the credits.':'Records worth playing all the way through.';
- const cover=kind==='vinyl'?'<div class="new-record-set"><div class="new-record-sleeve">'+bookJacket(pick?.name||'A new record',idx)+'</div><button id="vinyl-disc" class="new-disc '+(vinylPlaying?'is-playing':'')+'" aria-label="Spin the record" aria-pressed="'+vinylPlaying+'"><span>THE HOUSE</span></button></div>':kind==='movies'?'<div class="new-movie-feature"><small>JAY’S PRIVATE CINEMA</small><div class="new-movie-poster"><span class="new-poster-sun"></span><small>FEATURE NO. '+String(idx+1).padStart(2,'0')+'</small><strong>'+safe(pick?.name||'A film worth watching')+'</strong><small>PERSONAL SCREENING · THE HOUSE</small></div></div>':'<div class="new-book-stage">'+bookJacket(pick?.name||'A new book',idx)+'<span>SELECTED FROM THE SHELF · '+String(idx+1).padStart(2,'0')+' / '+String(rows.length).padStart(2,'0')+'</span></div>';
- return '<div class="new-collection new-collection--'+kind+'"><section class="new-collection-visual">'+cover+'</section><section class="new-collection-content"><span class="new-overline">'+(kind==='books'?'THE LITTLE LIBRARY':kind==='movies'?'SOUNDTRACKS & STORIES':'THE RECORD CORNER')+'</span><h2>'+heading+'</h2><p>'+summary+'</p><div class="new-category-tabs" role="tablist">'+toggle(tabs,filter)+'</div><div class="new-collection-list">'+(rows.map((x,i)=>'<button class="new-collection-item" data-select="'+i+'" aria-pressed="'+(i===idx)+'"><span>'+String(i+1).padStart(2,'0')+'</span><strong>'+safe(x.name)+'</strong><span>↗</span></button>').join('')||'<p>No items here yet.</p>')+'</div><div class="new-collection-note"><small>PERSONAL NOTE</small><p>'+safe(pick?.description||'A story worth passing along.')+'</p></div><button class="new-collection-add" data-action="compose">＋ '+(kind==='books'?'Add a book':kind==='movies'?'Add a film':'Add a record')+' <span>↗</span></button><div id="compose-area" hidden></div></section></div>';
+ const entries=itemsFor(kind,id);
+ const settings=kind==='books'?[['reading','Reading'],['tbr','To read'],['favorites','Favorites']]:kind==='movies'?[['favorites','Favorites'],['watchlist','To watch'],['recent','Recently watched']]:[['all','All records']];
+ const allowed=entries.filter(x=>matches(x,kind));
+ const pickIndex=Math.min(selected,Math.max(0,allowed.length-1));
+ const picked=allowed[pickIndex]||null;
+ const intro=kind==='books'?['MAYA’S LITTLE LIBRARY','A shelf of stories','The books she returns to, the ones she’s opening next.']:kind==='movies'?['JAY’S SCREENING ROOM','On the film wall','His favorite stories, and the films he keeps recommending.']:['JAY’S RECORD CORNER','On repeat','Records with a story behind each sleeve.'];
+ const rows=allowed.map((x,i)=>`<button type="button" data-select="${i}" aria-pressed="${pickIndex===i}" class="collection-item"><span class="collection-ordinal">${String(i+1).padStart(2,'0')}</span><span class="collection-name">${safe(x.name)}</span><span class="collection-indicator" aria-hidden="true">${pickIndex===i?'●':'↗'}</span></button>`).join('')||'<p class="collection-empty">Nothing here yet. Be the first to add one.</p>';
+ const action=`<button class="collection-add" type="button" data-action="compose"><span aria-hidden="true">＋</span> ${kind==='books'?'Add a book':kind==='movies'?'Add a film':'Add a record'}</button><div id="compose-area" class="collection-compose" hidden></div>`;
+ const nav=`<div class="collection-nav" role="tablist" aria-label="Collection category">${toggle(settings,filter)}</div>`;
+ const stage=kind==='vinyl'?`<div class="turntable-stage"><div class="record-sleeve">${coverType(picked?.name||'One more record',pickIndex)}</div><button id="vinyl-disc" class="record-disc ${vinylPlaying?'is-playing':''}" aria-label="${vinylPlaying?'Pause':'Spin'} this record" aria-pressed="${vinylPlaying}"><span class="record-label">THE<br>HOUSE</span></button><div class="tonearm" aria-hidden="true"></div><span class="vinyl-prompt">${vinylPlaying?'NOW SPINNING':'PRESS THE RECORD TO SPIN'}</span></div>`:kind==='movies'?`<div class="cinema-wall"><div class="cinema-ambient" role="img" aria-label="Movie posters on the wall in Jay's bedroom"></div><span class="cinema-topline">PRIVATE SCREENING ROOM / JAY</span><div class="cinema-posters">${allowed.map((x,i)=>`<button type="button" data-select="${i}" class="cinema-poster ${i===pickIndex?'is-active':''}" aria-pressed="${i===pickIndex}"><span class="poster-index">FILM ${String(i+1).padStart(2,'0')}</span><strong>${safe(x.name)}</strong><span class="poster-play">${i===pickIndex?'NOW SELECTED':'↗'}</span></button>`).join('')||'<p class="cinema-empty">Add a film to the wall</p>'}</div><span class="cinema-footline">HAND-PICKED BY JAY · ${String(allowed.length).padStart(2,'0')} FILMS</span></div>`:`<div class="library-set"><div class="library-shelf-photo" role="img" aria-label="Maya's real illustrated bookshelf"></div><div class="library-shelf-light"></div><div class="library-stand"><span class="library-stand-title">PULLED FROM THE SHELF</span><div class="library-foreground-book">${coverType(picked?.name||'A new story',pickIndex)}</div><span class="library-stand-page">${allowed.length?String(pickIndex+1).padStart(2,'0')+' / '+String(allowed.length).padStart(2,'0'):'SHELF EMPTY'}</span></div><div class="library-spines" aria-label="Choose a book">${allowed.slice(0,7).map((x,i)=>`<button type="button" data-select="${i}" class="library-spine ${i===pickIndex?'is-selected':''}" aria-label="Select ${safe(x.name)}" aria-pressed="${i===pickIndex}"><span>${safe(x.name)}</span></button>`).join('')}</div></div>`;
+ return `<div class="collection-experience collection--${kind}"><section class="collection-stage">${stage}</section><section class="collection-content"><div class="collection-kicker">${intro[0]}</div><h2>${intro[1]}</h2><p class="collection-lead">${intro[2]}</p>${nav}<div class="collection-list">${rows}</div><div class="collection-detail"><span class="collection-detail-kicker">${picked?'PERSONAL NOTE':'A NOTE WILL APPEAR HERE'}</span><p>${picked?safe(picked.description||'A story worth passing along.'):'Add the first thing to this collection.'}</p></div>${action}</section></div>`;
 }
-function moment(id){const photo=data.photos[id];const image=photo?.src?`<img alt="Today's photo" src="${photo.src}">`:`<span>${id==='maya'?'The small things':id==='jay'?'What today sounded like':'A day together'}</span>`;
-const polaroid=display('photo-tone',`<div class="polaroid"><div class="polaroid-image">${image}</div><div class="polaroid-caption">${safe(photo?.caption||'a little moment from today')}</div></div>`,'A PHOTO FOR TODAY');
-return template(polaroid,`${title("Today's photograph",'A tiny window into what today looked like. No endless feed, just one moment.',id==='lounge'?'FROM THE LOUNGE':id==='maya'?"FROM MAYA'S DESK":"FROM JAY'S DESK")}${photo?`<p class="mini-info">Pinned ${safe(photo.date||'recently')}</p>`:'<p class="mini-info">A new photo can live here each day.</p>'}<button class="form-trigger" data-action="compose">${photo?'↗ Replace today’s photo':'+ Pin today’s photo'} </button><div id="compose-area" hidden></div><p class="fine-print">Photos in this prototype are stored on this device only.</p>`);
+function moment(id){
+ const photo=data.photos[id]; const owner=id==='lounge'?'Our circle':id==='maya'?'Maya':'Jay';
+ const photoMarkup=photo?.src?`<img alt="Today’s photo from ${safe(owner)}" src="${photo.src}">`:`<div class="picture-fallback"><div class="picture-fallback-sun"></div><span>A little part<br>of today</span></div>`;
+ return `<div class="daily-experience"><section class="daily-stage"><div class="daily-window" style="--daily-image:url('./assets/details/${id==='lounge'?'lounge-photo':id==='jay'?'jay-photo':'maya-photo'}.webp')"></div><div class="daily-polaroid"><div class="daily-picture">${photoMarkup}</div><span>${safe(photo?.caption||'One moment. No endless feed.')}</span></div></section><section class="daily-information"><span class="daily-date">A WINDOW INTO TODAY</span><h2>Just a little moment.</h2><p>Not another feed. One photograph from ${safe(owner)}, left here for the people who care.</p><div class="daily-line"><span>THE DAILY FRAME</span><span>${safe(photo?.date||'WAITING FOR A PHOTO')}</span></div><button type="button" class="daily-pin" data-action="compose">${photo?'Replace today’s photo':'Pin a photograph'} <span aria-hidden="true">↗</span></button><div id="compose-area" class="daily-compose" hidden></div><small>Saved locally in this prototype.</small></section></div>`;
 }
 function notes(id){
- const entries=(data.notes||[]).filter(x=>x.room===id).slice().reverse(),idx=Math.min(selected,Math.max(0,entries.length-1)),n=entries[idx],to=id==='lounge'?'everyone':id==='maya'?'Maya':'Jay';
- return '<div class="new-mail"><aside class="new-mail-index"><small>POSTCARDS & LETTERS</small><h2>Letters left behind</h2><p>Some things deserve more than a reaction.</p><div class="new-envelope-stack">'+(entries.map((e,i)=>'<button class="new-envelope" data-select="'+i+'" aria-pressed="'+(i===idx)+'"><small>FROM '+safe(e.from||'A friend').toUpperCase()+'</small><strong>'+safe(e.text).slice(0,62)+'</strong><span>↗</span></button>').join('')||'<p>No letters yet.</p>')+'</div><button class="new-mail-action" data-action="compose">＋ Write a letter</button><small class="new-demo-note">In this prototype, letters stay on this device.</small></aside><section class="new-mail-stage"><div class="new-mail-heading"><span>AN OPEN LETTER</span><span>'+String(idx+1).padStart(2,'0')+' / '+String(entries.length).padStart(2,'0')+'</span></div><article class="new-letter-paper"><small>A LITTLE NOTE, JUST FOR YOU</small><h3>Dear '+safe(to)+',</h3><p>'+safe(n?.text||'A letter will be waiting for you here.')+'</p><span>With love,<br><strong>'+safe(n?.from||'A friend')+'</strong></span></article><div id="compose-area" hidden></div></section></div>';
+ const entries=(data.notes||[]).filter(n=>n.room===id).slice().reverse();
+ const idx=Math.min(selected,Math.max(0,entries.length-1)); const letter=entries[idx]||null;
+ const to=id==='lounge'?'our little circle':id==='maya'?'Maya':'Jay';
+ return `<div class="correspondence"><aside class="correspondence-inbox"><div class="mail-kicker">POSTCARDS & LETTERS</div><h2>Letters left behind<span class="mail-count">${entries.length}</span></h2><p>Some things are better left as a note.</p><div class="mail-stack">${entries.map((e,i)=>`<button type="button" class="mail-envelope ${i===idx?'is-selected':''}" data-select="${i}" aria-pressed="${i===idx}"><span class="envelope-fold" aria-hidden="true"></span><span class="mail-envelope-content"><span>FROM ${safe(e.from||'A friend').toUpperCase()}</span><strong>${safe(e.text).slice(0,57)}${String(e.text).length>57?'…':''}</strong></span><span class="envelope-open" aria-hidden="true">↗</span></button>`).join('')||'<div class="mail-blank">No letters yet. Leave the first.</div>'}</div><button type="button" class="mail-compose-btn" data-action="compose"><span>＋</span> Write a letter</button><p class="mail-privacy">Private demo: saved on this device, not delivered.</p></aside><section class="letter-stage"><div class="letter-desk-top"><span>AN OPEN LETTER</span><span>${String(idx+1).padStart(2,'0')} / ${String(entries.length).padStart(2,'0')}</span></div><article class="letter-paper"><span class="letter-paper-pin" aria-hidden="true"></span><span class="letter-paper-date">A LITTLE NOTE, JUST FOR YOU</span><h3>Dear ${safe(to)},</h3><p>${letter?safe(letter.text):'This space is waiting for a note from someone who knows you well.'}</p><div class="letter-signature">${letter?`With love,<br><strong>${safe(letter.from||'A friend')}</strong>`:'Yours, a friend'}</div></article><div id="compose-area" class="letter-compose" hidden></div></section></div>`;
 }
 function update(id){
- const message=data.updates[id]||'Nothing new yet.',owner=id==='lounge'?'Our circle':id==='maya'?'Maya':'Jay';
- return '<div class="new-bulletin"><header><small>THE HOUSE · A SMALL UPDATE</small><h2>Life lately.</h2><p>A little window into '+safe(owner)+'’s week.</p></header><div class="new-bulletin-note"><div class="new-bulletin-tape"></div><small>PINNED ON THE WALL</small><blockquote>'+safe(message)+'</blockquote><span>— '+safe(owner)+'</span></div><footer><span>Not everything needs a conversation.</span><button data-action="compose">Write an update ↗</button></footer><div id="compose-area" hidden></div></div>';
+ const message=data.updates[id]||'Nothing new yet.';
+ const owner=id==='lounge'?'The little circle':id==='maya'?'Maya':'Jay';
+ return `<div class="bulletin-experience"><header class="bulletin-head"><span class="bulletin-number">NOTE No. 01 — THE HOUSE</span><h2>Life lately<span class="bulletin-period">.</span></h2><p>An ordinary update from ${safe(owner)}.</p></header><section class="bulletin-board"><div class="bulletin-tape" aria-hidden="true"></div><div class="bulletin-note"><span>PINNED TO THE WALL</span><blockquote>${safe(message)}</blockquote><div class="bulletin-note-signature">— ${safe(owner)}</div></div></section><footer class="bulletin-actions"><span>Little things deserve a place too.</span><button type="button" data-action="compose">Edit this update <span aria-hidden="true">↗</span></button></footer><div id="compose-area" class="bulletin-compose" hidden></div></div>`;
 }
 const memories=[{name:'The summer trip',description:'We missed the train stop and ended up having the best day.'},{name:'That coffee place',description:'The place we kept returning to, even when it was way too crowded.'},{name:'The rainy afternoon',description:'Three hours talking when we were supposed to go home.'}];
-function gallery(){const m=memories[selected]||memories[0];const art=display('warm',`<div class="postcards">${memories.map((x,i)=>`<button class="postcard" data-select="${i}" aria-pressed="${selected===i}"><b>${safe(x.name)}</b><span>ONE FOR THE WALL</span></button>`).join('')}</div>`,'MEMORIES TO KEEP');
-return template(art,`${title('The photo wall','The stories that only make sense to your group.','THE SHARED LOUNGE')}<p class="selected-note">“${safe(m.description)}”</p><div class="detail-list">${memories.map((x,i)=>`<button class="detail-row" data-select="${i}" aria-pressed="${selected===i}"><strong>${safe(x.name)}</strong><span class="chevron">↗</span></button>`).join('')}</div><button class="form-trigger" data-action="go-daily">+ Add a daily photo <span>↗</span></button>`);
+function gallery(){const m=memories[selected]||memories[0];
+ return `<div class="gallery-experience"><section class="gallery-board"><span class="gallery-kicker">A WALL FULL OF US</span><div class="gallery-polaroids">${memories.map((x,i)=>`<button type="button" class="gallery-photo ${selected===i?'is-selected':''}" data-select="${i}" aria-label="View ${safe(x.name)}" aria-pressed="${selected===i}"><span class="gallery-photo-art" style="--gallery-position:${i===0?'left':i===1?'center':'right'}"></span><span>${safe(x.name)}</span></button>`).join('')}</div><div class="gallery-caption">A COLLECTION OF ORDINARY DAYS</div></section><section class="gallery-story"><span>MEMORY ${String(selected+1).padStart(2,'0')} / ${String(memories.length).padStart(2,'0')}</span><h2>${safe(m.name)}</h2><p>${safe(m.description)}</p><button type="button" class="gallery-action" data-action="go-daily">Pin today’s photograph <span>↗</span></button></section></div>`;
 }
-function tv(){const first=(data.movies||[]).find(x=>x.room==='jay');return template(display('wood',`<div class="screen-tv"><span>Tonight's idea</span><strong>${safe(first?.name||'Movie night')}</strong></div>`,'THE TV CABINET'),`${title('Movie night','The little ritual of choosing something together.','IN THE LOUNGE')}<p class="selected-note">“${safe(first?.description||'There is always something good to watch.')}”</p><button class="form-trigger" data-action="go-movies">Explore Jay's watchlist <span>↗</span></button><p class="fine-print">This is a shared watchlist concept, not a streaming service.</p>`);}
+function tv(){const first=(data.movies||[]).find(x=>x.room==='jay');
+ return `<div class="screening-experience"><section class="screening-stage"><span class="screening-corner">THE HOUSE PRESENTS</span><div class="screening-sun"></div><span class="screening-now">NOW SHOWING</span><h2>Movie<br>night<span>.</span></h2><span class="screening-foot">A SHARED WATCHLIST · NO TICKETS REQUIRED</span></section><section class="screening-details"><span class="collection-kicker">THE SHARED LOUNGE</span><h2>What's on tonight?</h2><p>${safe(first?.name||'A movie night with friends')}</p><blockquote>${safe(first?.description||'Something worth watching together.')}</blockquote><button type="button" class="screening-action" data-action="go-movies">Browse Jay’s film wall <span>↗</span></button></section></div>`;
+}
 function artifactContent(){if(!active)return '';const {kind,place}=active;return ['books','movies','vinyl'].includes(kind)?media(kind,place):kind==='daily'?moment(place):kind==='notes'?notes(place):kind==='update'?update(place):kind==='gallery'?gallery():kind==='tv'?tv():'';}
-function renderArtifact(){body.innerHTML=artifactContent();
- const view=body.querySelector('.art-display');
- if(view&&active){
-  const offsets={daily:{maya:[86,70],jay:[86,75],lounge:[47,52]},notes:{maya:[88,35],jay:[85,44],lounge:[47,65]},update:{maya:[80,63],jay:[84,70],lounge:[70,45]},gallery:{lounge:[48,30]},tv:{lounge:[14,54]}};
-  const spot=offsets[active.kind]?.[active.place]||[50,50];
-  view.classList.add('illustrated-display');
-  view.style.backgroundImage='linear-gradient(#1e2c242a,#1e2c2448),url("'+ROOMS[active.place].img+'")';
-  view.style.backgroundSize='cover,260% auto';
-  view.style.backgroundPosition='center,'+spot[0]+'% '+spot[1]+'%';
- }
- const heading=headings[active.kind]||'A little discovery';$('#artifact-kicker').textContent=active.place==='lounge'?'THE LOUNGE':ROOMS[active.place]?.name||'A ROOM';$('#artifact-index').textContent=heading;}
-let exitTimer=null,dialogSerial=0;
+function renderArtifact(){body.innerHTML=artifactContent();modal.className='artifact artifact--'+(active?.kind||'unknown')+(modal.classList.contains('is-open')?' is-open':'');modal.dataset.scene=active?.kind||'';const heading=headings[active.kind]||'A little discovery';$('#artifact-kicker').textContent=active.place==='lounge'?'THE LOUNGE':ROOMS[active.place]?.name||'A ROOM';$('#artifact-index').textContent=heading;}
+let closeTimer=null,dialogSequence=0;
 function openArtifact(kind,place,origin){
  if(!active)lastFocus=document.activeElement;
- ++dialogSerial;clearTimeout(exitTimer);active={kind,place};filter=kind==='books'?'reading':kind==='movies'?'favorites':'all';selected=0;vinylPlaying=false;pendingPhoto=null;renderArtifact();
- const anchor=origin?.getBoundingClientRect?.(),cx=anchor?anchor.x+anchor.width/2:innerWidth/2,cy=anchor?anchor.y+anchor.height/2:innerHeight/2;
- modal.style.setProperty('--origin-x',Math.round(cx/innerWidth*100)+'%');modal.style.setProperty('--origin-y',Math.round(cy/innerHeight*100)+'%');
- modal.hidden=false;backdrop.hidden=false;document.body.style.overflow='hidden';objectMenu.hidden=true;hideObjectTip();
+ ++dialogSequence;clearTimeout(closeTimer);
+ active={kind,place};filter=kind==='books'?'reading':kind==='movies'?'favorites':'all';selected=0;vinylPlaying=false;pendingPhoto=null;
+ renderArtifact();hideObjectTooltip();objectMenu.hidden=true;
+ const source=origin?.getBoundingClientRect?.();
+ if(source){const cx=source.left+source.width/2,cy=source.top+source.height/2;
+   modal.style.setProperty('--open-x',Math.max(8,Math.min(92,cx/window.innerWidth*100))+'%');
+   modal.style.setProperty('--open-y',Math.max(8,Math.min(92,cy/window.innerHeight*100))+'%');
+ }else{modal.style.setProperty('--open-x','50%');modal.style.setProperty('--open-y','55%');}
+ modal.hidden=false;backdrop.hidden=false;document.body.style.overflow='hidden';
  requestAnimationFrame(()=>{modal.classList.add('is-open');backdrop.classList.add('is-open');$('#artifact-close').focus({preventScroll:true});});
 }
-function closeArtifact(){if(!active)return;active=null;const serial=++dialogSerial;modal.classList.remove('is-open');backdrop.classList.remove('is-open');document.body.style.overflow='';
- exitTimer=setTimeout(()=>{if(serial!==dialogSerial)return;modal.hidden=true;backdrop.hidden=true;lastFocus?.focus?.({preventScroll:true});},reduce.matches?0:280);
+function closeArtifact(){if(!active)return;active=null;
+ const serial=++dialogSequence;modal.classList.remove('is-open');backdrop.classList.remove('is-open');document.body.style.overflow='';
+ closeTimer=setTimeout(()=>{if(serial!==dialogSequence)return;modal.hidden=true;backdrop.hidden=true;lastFocus?.focus?.({preventScroll:true});},reduce.matches?0:400);
 }
 $('#artifact-close').addEventListener('click',closeArtifact);backdrop.addEventListener('click',closeArtifact);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(active)closeArtifact();else if(room)leave();else $('#circle-menu').hidden=true;return;}if(e.key==='Tab'&&active){const tabbable=[...modal.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled])')].filter(x=>!x.closest('[hidden]'));if(!tabbable.length)return;const first=tabbable[0],last=tabbable[tabbable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
@@ -178,10 +215,11 @@ function composition(){if(!active)return '';const k=active.kind;if(['books','mov
 if(k==='daily')return `<form class="form-area" id="compose-form"><label class="form-label" for="photo-file">Today's photo</label><input type="file" class="field" id="photo-file" accept="image/*" required/><label class="form-label" for="photo-caption">A few words</label><input class="field" id="photo-caption" maxlength="140" placeholder="Something about today"/><button class="primary-action" type="submit">Pin the photograph ↗</button></form>`;
 if(k==='notes')return `<form class="form-area" id="compose-form"><label class="form-label" for="note-from">From</label><input class="field" id="note-from" maxlength="35" value="You" required/><label class="form-label" for="note-message">Your letter</label><textarea class="field textarea" id="note-message" maxlength="350" required placeholder="Something you wanted to say…"></textarea><button class="primary-action" type="submit">Leave the letter ↗</button></form>`;
 if(k==='update')return `<form class="form-area" id="compose-form"><label class="form-label" for="update-message">Life lately</label><textarea class="field textarea" id="update-message" maxlength="300" required placeholder="What happened this week?">${safe(data.updates[active.place]||'')}</textarea><button class="primary-action" type="submit">Pin this update ↗</button></form>`;return '';}
+function playSettle(){const stage=body.firstElementChild;if(!stage||reduce.matches)return;stage.classList.remove('is-changing');void stage.offsetWidth;stage.classList.add('is-changing');}
 body.addEventListener('click',e=>{const action=e.target.closest('[data-action]');if(action){const a=action.dataset.action;if(a==='compose'){const box=$('#compose-area');box.hidden=!box.hidden;if(!box.hidden){box.innerHTML=composition();box.querySelector('input,textarea')?.focus();}}else if(a==='go-movies')openArtifact('movies','jay');else if(a==='go-daily')openArtifact('daily','lounge');return;}
-const filt=e.target.closest('[data-filter]');if(filt){filter=filt.dataset.filter;selected=0;renderArtifact();return;}
-const pick=e.target.closest('[data-pick],[data-select]');if(pick){selected=Number(pick.dataset.pick??pick.dataset.select)||0;renderArtifact();return;}
-if(e.target.closest('#vinyl-disc')){vinylPlaying=!vinylPlaying;$('#vinyl-disc').classList.toggle('is-playing',vinylPlaying);return;}
+const filt=e.target.closest('[data-filter]');if(filt){filter=filt.dataset.filter;selected=0;renderArtifact();playSettle();return;}
+const pick=e.target.closest('[data-pick],[data-select]');if(pick){selected=Number(pick.dataset.pick??pick.dataset.select)||0;renderArtifact();playSettle();return;}
+if(e.target.closest('#vinyl-disc')){vinylPlaying=!vinylPlaying;$('#vinyl-disc').classList.toggle('is-playing',vinylPlaying);$('#vinyl-disc').setAttribute('aria-pressed',String(vinylPlaying));const prompt=body.querySelector('.vinyl-prompt');if(prompt)prompt.textContent=vinylPlaying?'NOW SPINNING':'PRESS THE RECORD TO SPIN';return;}
 });
 body.addEventListener('submit',async e=>{if(e.target.id!=='compose-form'||!active)return;e.preventDefault();const {kind,place}=active;let message='Saved to this room';
 if(['books','movies','vinyl'].includes(kind)){const f=e.target;const name=f.elements.title.value.trim();if(!name)return;data[kind].push({name,description:f.elements.note.value.trim(),status:f.elements.status.value,room:place,id:Date.now().toString()});filter=f.elements.status.value;selected=0;message='Added to the collection';}
