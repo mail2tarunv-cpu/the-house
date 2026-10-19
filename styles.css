@@ -451,3 +451,9 @@
 .maya-character img{transition:opacity .13s ease;object-fit:contain}
 .maya-character[data-action="walk"] img{transition:none}
 @media(prefers-reduced-motion:reduce){.maya-character img{transition:none!important}}
+
+/* Maya v16: fixed walking body scale, no physical bounding-box morph between poses. */
+.maya-character,.maya-character[data-motion="moving"]{transition:none!important}
+.maya-character img{object-fit:contain;transition:opacity .18s ease-in-out}
+.maya-character[data-action="walk"] img{transition:none!important}
+@media(prefers-reduced-motion:reduce){.maya-character img{transition:none!important}}

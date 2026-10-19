@@ -62,18 +62,18 @@ const MAYA_DIMENSIONS={
 // Sit/writing illustrations contain props, so their overall bounding boxes are wider.
 const MAYA_POSES={
   maya:{
-    idle:{frame:'idle-fixed.webp',x:1120,bottom:851,h:230,description:'Standing beside the books'},
-    walk:{frame:'walk_0-fixed.webp',x:1085,bottom:851,h:230,description:'Walking across the bedroom'},
-    read:{frame:'read.webp',x:947,bottom:858,h:228,description:'Reading while seated on the room’s existing green pouf'},
-    write:{frame:'write.webp',x:1300,bottom:823,h:260,description:'Writing at the room’s existing desk'},
-    plant:{frame:'plant.webp',x:1150,bottom:848,h:240,description:'Checking the floor plant, standing on the rug'}
+    idle:{frame:'idle-fixed.webp',x:1106,bottom:850,h:320,description:'Standing by the books'},
+    walk:{frame:'walk_0-fixed.webp',x:1110,bottom:850,h:320,description:'Walking through the room'},
+    read:{frame:'read.webp',x:965,bottom:851,h:296,description:'Reading by the green pouf'},
+    write:{frame:'write.webp',x:1306,bottom:811,h:316,description:'Writing at the desk'},
+    plant:{frame:'plant.webp',x:1470,bottom:850,h:310,description:'Checking the plant beside the desk'}
   },
   lounge:{
-    idle:{frame:'idle-fixed.webp',x:1100,bottom:851,h:234,description:'Standing by the lounge'},
-    walk:{frame:'walk_0-fixed.webp',x:1060,bottom:851,h:234,description:'Walking along the open floor'},
-    read:{frame:'read.webp',x:470,bottom:825,h:216,description:'Reading on the lounge pouf'},
-    relax:{frame:'lounge.webp',x:875,bottom:660,h:240,description:'Sitting on the existing shared sofa'},
-    plant:{frame:'plant.webp',x:1250,bottom:847,h:240,description:'Checking the kitchen plants'}
+    idle:{frame:'idle-fixed.webp',x:1080,bottom:849,h:320,description:'Standing in the lounge'},
+    walk:{frame:'walk_0-fixed.webp',x:1070,bottom:849,h:320,description:'Walking along the lounge floor'},
+    read:{frame:'read.webp',x:475,bottom:817,h:290,description:'Reading in the lounge'},
+    relax:{frame:'lounge.webp',x:890,bottom:677,h:267,description:'Sitting on the existing sofa'},
+    plant:{frame:'plant.webp',x:1280,bottom:850,h:310,description:'Checking the kitchen plants'}
   }
 };
 const MAYA_WALK_ROUTES={
@@ -183,10 +183,11 @@ function mayaImageSource(name){
 mayaPrepareArtwork().catch(()=>{});
 // Short, interruptible character choreography. One synchronized animation controller.
 const MAYA_APPROACH={
-  maya:{idle:1120,walk:1110,read:1040,write:1250,plant:1340},
-  lounge:{idle:1100,walk:1080,read:550,relax:930,plant:1290}
+  maya:{idle:1106,walk:1110,read:1040,write:1275,plant:1400},
+  lounge:{idle:1080,walk:1070,read:550,relax:980,plant:1270}
 };
-const mayaStage={active:false,x:1120,bottom:851,w:183,h:230};
+const MAYA_UPRIGHT={w:320*310/390,h:320};
+const mayaStage={active:false,x:1106,bottom:850,...MAYA_UPRIGHT};
 let mayaMotionToken=0,mayaMoveRaf=0,mayaSettlingTimer=0;
 function mayaCurrentPose(){return MAYA_POSES[room]?.[mayaCurrent[room]]||null;}
 function mayaFrameSize(pose){
@@ -228,7 +229,8 @@ function mayaTween(from,to,ms,token,walking=false){return new Promise(resolve=>{
     if(token!==mayaMotionToken||mayaCharacter.hidden){resolve(false);return;}
     const t=Math.min(1,(now-start)/ms),eased=t*t*(3-2*t);
     mayaStage.active=true;
-    for(const k of ['x','bottom','w','h'])mayaStage[k]=from[k]+(to[k]-from[k])*eased;
+    for(const k of ['x','bottom'])mayaStage[k]=from[k]+(to[k]-from[k])*eased;
+    mayaStage.w=MAYA_UPRIGHT.w;mayaStage.h=MAYA_UPRIGHT.h;
     if(walking){
       const step=Math.floor(now/145)%4;
       if(step!==last){last=step;mayaSetFrame('walk_'+step+'-fixed.webp',to.x<from.x?'left':'right');}
@@ -260,25 +262,27 @@ async function mayaAct(action,{instant=false}={}){
     mayaCharacter.dataset.action=action;mayaLayout();
   };
   if(instant||reduce.matches){finish();return;}
-  const ground={x:previous.x,bottom:851,w:183,h:230};
-  const goal={x:MAYA_APPROACH[room][action]??pose.x,bottom:851,w:183,h:230};
+  const ground={x:previous.x,bottom:850,...MAYA_UPRIGHT};
+  const goal={x:MAYA_APPROACH[room][action]??pose.x,bottom:850,...MAYA_UPRIGHT};
   // Rise before walking away from existing furniture, without bringing in duplicate props.
   if(['read','write','relax','plant'].includes(was)&&was!==action){
-    mayaPose.style.opacity='.25';
-    if(!await mayaSleep(105,token))return;
-    mayaSetFrame('idle-fixed.webp');mayaPose.style.opacity='1';
-    if(!await mayaTween(previous,ground,240,token))return;
+    mayaPose.style.opacity='0';
+    if(!await mayaSleep(130,token))return;
+    Object.assign(mayaStage,ground);
+    mayaSetFrame('idle-fixed.webp');mayaLayout();
+    mayaPose.style.opacity='1';
+    if(!await mayaSleep(130,token))return;
   }
   const current=mayaStage.active?{x:mayaStage.x,bottom:mayaStage.bottom,w:mayaStage.w,h:mayaStage.h}:previous;
   if(action==='walk'){
     const path=MAYA_WALK_ROUTES[room];
     if(!path){finish();return;}
-    const first={x:path[0].x,bottom:path[0].bottom,w:183,h:230};
+    const first={x:path[0].x,bottom:path[0].bottom,...MAYA_UPRIGHT};
     if(!await mayaTween(current,first,Math.max(220,Math.abs(current.x-first.x)*2.5),token,true))return;
     async function patrol(){
       let prev=first,dir=1;
       while(token===mayaMotionToken&&room===where&&mayaCurrent[room]==='walk'){
-        const next={x:path[dir].x,bottom:path[dir].bottom,w:183,h:230};
+        const next={x:path[dir].x,bottom:path[dir].bottom,...MAYA_UPRIGHT};
         if(!await mayaTween(prev,next,Math.max(380,Math.abs(next.x-prev.x)*5.4),token,true))return;
         if(!await mayaSleep(160,token))return;
         prev=next;dir=1-dir;
@@ -295,10 +299,12 @@ async function mayaAct(action,{instant=false}={}){
   // Brief readiness pose, then a synchronized image/position settle into the final action.
   mayaSetFrame('idle-fixed.webp');
   if(!await mayaSleep(115,token))return;
-  mayaPose.style.opacity='.12';
-  if(!await mayaSleep(110,token))return;
-  mayaSetFrame(pose.frame);mayaPose.style.opacity='1';
-  if(!await mayaTween(goal,{x:pose.x,bottom:pose.bottom,...mayaFrameSize(pose)},330,token))return;
+  mayaPose.style.opacity='0';
+  if(!await mayaSleep(125,token))return;
+  Object.assign(mayaStage,{active:true,x:pose.x,bottom:pose.bottom,...mayaFrameSize(pose)});
+  mayaSetFrame(pose.frame);mayaLayout();
+  requestAnimationFrame(()=>{if(token===mayaMotionToken&&room===where)mayaPose.style.opacity='1';});
+  if(!await mayaSleep(240,token))return;
   finish();
 }
 function setMayaPose(name){mayaAct(name);}
