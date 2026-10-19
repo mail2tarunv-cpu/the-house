@@ -83,3 +83,10 @@
 @media(max-width:520px){.object-discovery{right:8px;bottom:8px}.objects-button{padding:10px 12px}.room-navigation{left:44%;bottom:9px}.scene-heading{top:13px;left:14px}.scene-heading h1{font-size:22px}.room-crop{min-height:160px;max-height:173px;background-size:200% auto!important}}
 @media(hover:none){.object-hit{fill:transparent!important}}
 @media(prefers-reduced-motion:reduce){.artifact,.dialog-backdrop{transition:none!important}}
+
+/* Carry the approved editorial room art through daily photos, letters, memories and updates. */
+.art-display.illustrated-display{background-color:#aebbaa;background-repeat:no-repeat;box-shadow:inset 0 0 0 1px #fff4}
+.art-display.illustrated-display .display-label{color:#fff;filter:drop-shadow(0 1px 2px #19251dcc)}
+.art-display.illustrated-display .polaroid,.art-display.illustrated-display .note-sheet,.art-display.illustrated-display .update-note{box-shadow:0 19px 45px #1520157a}
+.art-display.illustrated-display .polaroid-image{background:#e5e8df;color:#65766c}
+.art-display.illustrated-display .postcards{isolation:isolate}

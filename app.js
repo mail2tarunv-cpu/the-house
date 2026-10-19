@@ -144,7 +144,17 @@ return template(art,`${title('The photo wall','The stories that only make sense 
 }
 function tv(){const first=(data.movies||[]).find(x=>x.room==='jay');return template(display('wood',`<div class="screen-tv"><span>Tonight's idea</span><strong>${safe(first?.name||'Movie night')}</strong></div>`,'THE TV CABINET'),`${title('Movie night','The little ritual of choosing something together.','IN THE LOUNGE')}<p class="selected-note">“${safe(first?.description||'There is always something good to watch.')}”</p><button class="form-trigger" data-action="go-movies">Explore Jay's watchlist <span>↗</span></button><p class="fine-print">This is a shared watchlist concept, not a streaming service.</p>`);}
 function artifactContent(){if(!active)return '';const {kind,place}=active;return ['books','movies','vinyl'].includes(kind)?media(kind,place):kind==='daily'?moment(place):kind==='notes'?notes(place):kind==='update'?update(place):kind==='gallery'?gallery():kind==='tv'?tv():'';}
-function renderArtifact(){body.innerHTML=artifactContent();const heading=headings[active.kind]||'A little discovery';$('#artifact-kicker').textContent=active.place==='lounge'?'THE LOUNGE':ROOMS[active.place]?.name||'A ROOM';$('#artifact-index').textContent=heading;}
+function renderArtifact(){body.innerHTML=artifactContent();
+ const view=body.querySelector('.art-display');
+ if(view&&active){
+  const offsets={daily:{maya:[86,70],jay:[86,75],lounge:[47,52]},notes:{maya:[88,35],jay:[85,44],lounge:[47,65]},update:{maya:[80,63],jay:[84,70],lounge:[70,45]},gallery:{lounge:[48,30]},tv:{lounge:[14,54]}};
+  const spot=offsets[active.kind]?.[active.place]||[50,50];
+  view.classList.add('illustrated-display');
+  view.style.backgroundImage='linear-gradient(#1e2c242a,#1e2c2448),url("'+ROOMS[active.place].img+'")';
+  view.style.backgroundSize='cover,260% auto';
+  view.style.backgroundPosition='center,'+spot[0]+'% '+spot[1]+'%';
+ }
+ const heading=headings[active.kind]||'A little discovery';$('#artifact-kicker').textContent=active.place==='lounge'?'THE LOUNGE':ROOMS[active.place]?.name||'A ROOM';$('#artifact-index').textContent=heading;}
 let exitTimer=null,dialogSerial=0;
 function openArtifact(kind,place,origin){
  if(!active)lastFocus=document.activeElement;
