@@ -62,18 +62,18 @@ const MAYA_DIMENSIONS={
 // Sit/writing illustrations contain props, so their overall bounding boxes are wider.
 const MAYA_POSES={
   maya:{
-    idle:{frame:'idle-fixed.webp',x:1115,bottom:851,h:224,description:'Standing near the books'},
-    walk:{frame:'walk_0-fixed.webp',x:1085,bottom:851,h:222,description:'Walking across the rug'},
-    read:{frame:'read.webp',x:962,bottom:855,w:232,description:'Reading on the green floor cushion'},
-    write:{frame:'write.webp',x:1310,bottom:816,w:304,description:'Writing at her desk'},
-    plant:{frame:'plant.webp',x:1290,bottom:596,h:207,description:'Tending the plants from behind the writing desk'}
+    idle:{frame:'idle-fixed.webp',x:1120,bottom:851,h:230,description:'Standing beside the books'},
+    walk:{frame:'walk_0-fixed.webp',x:1085,bottom:851,h:230,description:'Walking across the bedroom'},
+    read:{frame:'read.webp',x:947,bottom:858,h:228,description:'Reading while seated on the room’s existing green pouf'},
+    write:{frame:'write.webp',x:1300,bottom:823,h:260,description:'Writing at the room’s existing desk'},
+    plant:{frame:'plant.webp',x:1150,bottom:848,h:240,description:'Checking the floor plant, standing on the rug'}
   },
   lounge:{
-    idle:{frame:'idle-fixed.webp',x:1110,bottom:853,h:231,description:'Standing by the shared lounge'},
-    walk:{frame:'walk_0-fixed.webp',x:1045,bottom:853,h:228,description:'Walking along the front of the lounge'},
-    read:{frame:'read.webp',x:1060,bottom:757,w:216,description:'Reading in the lounge'},
-    relax:{frame:'lounge.webp',x:818,bottom:695,w:404,description:'Relaxing on the sofa'},
-    plant:{frame:'plant.webp',x:1305,bottom:577,h:204,description:'Checking the kitchen plants'}
+    idle:{frame:'idle-fixed.webp',x:1100,bottom:851,h:234,description:'Standing by the lounge'},
+    walk:{frame:'walk_0-fixed.webp',x:1060,bottom:851,h:234,description:'Walking along the open floor'},
+    read:{frame:'read.webp',x:470,bottom:825,h:216,description:'Reading on the lounge pouf'},
+    relax:{frame:'lounge.webp',x:875,bottom:660,h:240,description:'Sitting on the existing shared sofa'},
+    plant:{frame:'plant.webp',x:1250,bottom:847,h:240,description:'Checking the kitchen plants'}
   }
 };
 const MAYA_WALK_ROUTES={
@@ -86,6 +86,101 @@ const mayaActions=$('#maya-actions'),mayaActionsList=$('#maya-actions-list');
 const mayaCurrent={maya:'idle',lounge:'relax'};
 let mayaFrame=-1,mayaAnimationId=0;
 const mayaTravel={room:null,x:0,bottom:0,goal:1,last:0,holdUntil:0,facing:'right'};
+
+// Cut the furniture out of old illustrated pose images once, using transparent
+// canvas masks. Render only Maya over the furniture already painted in each room.
+// Using the original assets here avoids introducing a second sofa / desk / pouf.
+const MAYA_ART={};
+const MAYA_CUT_BOUNDS={
+  'read.webp':[27,15,289,306],
+  'write.webp':[48,12,342,333],
+  'lounge.webp':[112,12,290,308]
+};
+const MAYA_CUT_SHAPES={
+  'read.webp':[
+    [0.18,0.62],[0.13,0.51],[0.17,0.34],[0.23,0.13],[0.35,0.04],
+    [0.52,0.06],[0.66,0.19],[0.72,0.47],[0.86,0.63],[0.88,0.75],
+    [0.74,0.87],[0.56,0.94],[0.33,0.86],[0.12,0.77],[0.09,0.69]
+  ],
+  'write.webp':[
+    [0.18,0.68],[0.15,0.46],[0.18,0.31],[0.26,0.09],[0.44,0.01],
+    [0.59,0.05],[0.68,0.24],[0.81,0.45],[0.88,0.59],[0.75,0.68],
+    [0.89,0.88],[0.86,0.98],[0.60,0.98],[0.45,0.9],[0.35,0.81],[0.23,0.79]
+  ],
+  'lounge.webp':[
+    [0.28,0.56],[0.3,0.33],[0.38,0.1],[0.49,0.02],[0.58,0.13],
+    [0.64,0.4],[0.73,0.55],[0.7,0.69],[0.6,0.78],[0.63,0.94],
+    [0.59,0.99],[0.46,0.99],[0.4,0.84],[0.34,0.77],[0.25,0.69]
+  ]
+};
+const MAYA_DYNAMIC_DIMS={};
+function mayaImg(src){
+  return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);
+    im.onerror=reject;im.src=MAYA_ROOT+src;});
+}
+function mayaMaskCanvas(source,points,bounds){
+  const canvas=document.createElement('canvas');
+  canvas.width=source.naturalWidth;canvas.height=source.naturalHeight;
+  const context=canvas.getContext('2d',{willReadFrequently:false});
+  if(!context)return null;
+  context.drawImage(source,0,0);
+  context.globalCompositeOperation='destination-in';
+  context.fillStyle='#000';
+  context.beginPath();
+  points.forEach(([x,y],index)=>{
+    const xx=x*canvas.width,yy=y*canvas.height;
+    if(index===0)context.moveTo(xx,yy);else context.lineTo(xx,yy);
+  });
+  context.closePath();context.fill();
+  context.globalCompositeOperation='source-over';
+  const [xx,yy,ww,hh]=bounds;
+  const sx=Math.max(0,Math.min(canvas.width-1,xx));
+  const sy=Math.max(0,Math.min(canvas.height-1,yy));
+  const cw=Math.min(ww,canvas.width-sx),ch=Math.min(hh,canvas.height-sy);
+  const out=document.createElement('canvas');out.width=cw;out.height=ch;
+  out.getContext('2d').drawImage(canvas,sx,sy,cw,ch,0,0,cw,ch);
+  return out;
+}
+async function mayaPrepareArtwork(){
+  const assets=['read.webp','write.webp','lounge.webp','plant.webp','idle-fixed.webp'];
+  const results=await Promise.allSettled(assets.map(mayaImg));
+  const loaded=Object.fromEntries(results.map((result,index)=>
+    [assets[index],result.status==='fulfilled'?result.value:null]));
+  for(const name of Object.keys(MAYA_CUT_SHAPES)){
+    const source=loaded[name];if(!source)continue;
+    const shape=MAYA_CUT_SHAPES[name];
+    // The polygon is in normalized source-image coordinates.
+    const b=MAYA_CUT_BOUNDS[name];
+    const canvas=mayaMaskCanvas(source,shape,b);
+    if(!canvas)continue;
+    MAYA_ART[name]=canvas.toDataURL('image/webp',.94);
+    MAYA_DYNAMIC_DIMS[name]=[canvas.width,canvas.height];
+  }
+  // Plant pose was cut off at the waist. Reconstruct the trousers from Maya's
+  // matching standing artwork, then lay the reaching torso over that pair of legs.
+  if(loaded['plant.webp']&&loaded['idle-fixed.webp']){
+    const upper=loaded['plant.webp'],idle=loaded['idle-fixed.webp'];
+    const out=document.createElement('canvas');out.width=340;out.height=445;
+    const ctx=out.getContext('2d');
+    if(ctx){
+      const [iw,ih]=[idle.naturalWidth,idle.naturalHeight];
+      ctx.drawImage(idle,iw*.22,ih*.64,iw*.66,ih*.36,60,250,181,190);
+      ctx.drawImage(upper,15,0,310,332);
+      MAYA_ART['plant.webp']=out.toDataURL('image/webp',.94);
+      MAYA_DYNAMIC_DIMS['plant.webp']=[340,445];
+    }
+  }
+  if(MAYA_POSES[room]?.[mayaCurrent[room]]){
+    const pose=MAYA_POSES[room][mayaCurrent[room]];
+    if(MAYA_ART[pose.frame]){mayaPose.src=MAYA_ART[pose.frame];mayaLayout();}
+  }
+}
+function mayaImageSource(name){
+  if(MAYA_CUT_SHAPES[name]||name==='plant.webp')
+    return MAYA_ART[name]||MAYA_ROOT+'idle-fixed.webp';
+  return MAYA_ROOT+name;
+}
+mayaPrepareArtwork().catch(()=>{});
 function mayaCurrentPose(){return MAYA_POSES[room]?.[mayaCurrent[room]]||null;}
 function mayaLayout(){
   const pose=mayaCurrentPose();
@@ -97,7 +192,7 @@ function mayaLayout(){
   const walking=mayaCurrent[room]==='walk';
   const x=walking?mayaTravel.x:pose.x;
   const bottom=walking?mayaTravel.bottom:pose.bottom;
-  const dims=MAYA_DIMENSIONS[pose.frame]||[310,390];
+  const dims=MAYA_DYNAMIC_DIMS[pose.frame]||MAYA_DIMENSIONS[pose.frame]||[310,390];
   const spriteWidth=pose.w??(pose.h*dims[0]/dims[1]);
   const spriteHeight=pose.h??(pose.w*dims[1]/dims[0]);
   mayaCharacter.style.left=(ox+x*scale)+'px';
@@ -162,7 +257,7 @@ function setMayaPose(action){
   if(action==='walk'){
     mayaResetWalk();
     mayaPose.src=MAYA_ROOT+(reduce.matches?'idle-fixed.webp':pose.frame);
-  }else mayaPose.src=MAYA_ROOT+pose.frame;
+  }else mayaPose.src=mayaImageSource(pose.frame);
   mayaCharacter.setAttribute('aria-label','Maya: '+pose.description);
   mayaActionsList.querySelectorAll('[data-maya-action]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.mayaAction===action)));
   mayaLayout();

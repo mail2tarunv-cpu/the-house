@@ -443,5 +443,5 @@
 .maya-character img.switching{animation:maya-image-in .26s ease-out both}
 @keyframes maya-image-in{from{opacity:.55;translate:0 7px}to{opacity:1;translate:0 0}}
 /* Plant artwork is an upper-body pose. Position it at the actual desk edge, not mid-floor. */
-.maya-character[data-action="plant"] img{mask-image:linear-gradient(to bottom,#000 0%,#000 87%,transparent 100%)}
+.maya-character[data-action="plant"] img{mask-image:none;clip-path:none}
 @media(prefers-reduced-motion:reduce){.maya-character{transition:none}.maya-character img.switching{animation:none!important}}
