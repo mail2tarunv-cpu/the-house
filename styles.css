@@ -457,3 +457,10 @@
 .maya-character img{object-fit:contain;transition:opacity .18s ease-in-out}
 .maya-character[data-action="walk"] img{transition:none!important}
 @media(prefers-reduced-motion:reduce){.maya-character img{transition:none!important}}
+
+/* Maya v17: furniture-aware writing pose; walk sprites remain consistently sized. */
+.maya-character[data-sprite="write_atdesk_v17.webp"] img{
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 64%,rgba(0,0,0,.65) 69%,transparent 78%);
+  mask-image:linear-gradient(to bottom,#000 0%,#000 64%,rgba(0,0,0,.65) 69%,transparent 78%);
+}
+.maya-character[data-action="walk"] img{image-rendering:auto;object-fit:contain}

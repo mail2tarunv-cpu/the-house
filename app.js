@@ -56,6 +56,8 @@ const MAYA_DIMENSIONS={
   'walk_0-fixed.webp':[310,390],'walk_1-fixed.webp':[310,390],
   'walk_2-fixed.webp':[310,390],'walk_3-fixed.webp':[310,390],
   'read.webp':[342,344],'write.webp':[403,347],
+  'write_atdesk_v17.webp':[660,560],
+  ...Object.fromEntries(Array.from({length:8},(_,i)=>['walk_v17_'+i+'.webp',[330,616]])),
   'lounge.webp':[546,324],'plant.webp':[297,329]
 };
 // x = visual center; bottom = contact point in 1672 × 941 room coordinates.
@@ -64,16 +66,16 @@ const MAYA_POSES={
   maya:{
     idle:{frame:'idle-fixed.webp',x:1106,bottom:850,h:320,description:'Standing by the books'},
     walk:{frame:'walk_0-fixed.webp',x:1110,bottom:850,h:320,description:'Walking through the room'},
-    read:{frame:'read.webp',x:965,bottom:851,h:296,description:'Reading by the green pouf'},
-    write:{frame:'write.webp',x:1306,bottom:811,h:316,description:'Writing at the desk'},
-    plant:{frame:'plant.webp',x:1470,bottom:850,h:310,description:'Checking the plant beside the desk'}
+    read:{frame:'read.webp',x:965,bottom:851,h:222,description:'Reading by the green pouf'},
+    write:{frame:'write_atdesk_v17.webp',x:1300,bottom:742,h:290,description:'Writing at the desk'},
+    plant:{frame:'plant.webp',x:1470,bottom:850,h:372,description:'Checking the plant beside the desk'}
   },
   lounge:{
     idle:{frame:'idle-fixed.webp',x:1080,bottom:849,h:320,description:'Standing in the lounge'},
     walk:{frame:'walk_0-fixed.webp',x:1070,bottom:849,h:320,description:'Walking along the lounge floor'},
-    read:{frame:'read.webp',x:475,bottom:817,h:290,description:'Reading in the lounge'},
+    read:{frame:'read.webp',x:475,bottom:817,h:217.5,description:'Reading in the lounge'},
     relax:{frame:'lounge.webp',x:890,bottom:677,h:267,description:'Sitting on the existing sofa'},
-    plant:{frame:'plant.webp',x:1280,bottom:850,h:310,description:'Checking the kitchen plants'}
+    plant:{frame:'plant.webp',x:1280,bottom:850,h:372,description:'Checking the kitchen plants'}
   }
 };
 const MAYA_WALK_ROUTES={
@@ -181,6 +183,16 @@ function mayaImageSource(name){
   return MAYA_ROOT+name;
 }
 mayaPrepareArtwork().catch(()=>{});
+// Preload and decode motion assets once so image changes don't pause mid-stride.
+const MAYA_MOTION_IMAGES=Array.from({length:8},(_,i)=>{
+  const img=new Image();img.decoding='async';img.src=MAYA_ROOT+'walk_v17_'+i+'.webp';
+  if(img.decode)img.decode().catch(()=>{});
+  return img;
+});
+const MAYA_WRITING_IMAGE=new Image();
+MAYA_WRITING_IMAGE.decoding='async';
+MAYA_WRITING_IMAGE.src=MAYA_ROOT+'write_atdesk_v17.webp';
+if(MAYA_WRITING_IMAGE.decode)MAYA_WRITING_IMAGE.decode().catch(()=>{});
 // Short, interruptible character choreography. One synchronized animation controller.
 const MAYA_APPROACH={
   maya:{idle:1106,walk:1110,read:1040,write:1275,plant:1400},
@@ -218,6 +230,7 @@ function mayaAbort(){
 function mayaSetFrame(frame,dir='right'){
   const src=frame.startsWith('walk_')?MAYA_ROOT+frame:mayaImageSource(frame);
   if(mayaPose.getAttribute('src')!==src)mayaPose.setAttribute('src',src);
+  mayaCharacter.dataset.sprite=frame;
   mayaPose.style.transform=dir==='left'?'scaleX(-1)':'';
 }
 function mayaSleep(ms,token){return new Promise(resolve=>{
@@ -232,8 +245,8 @@ function mayaTween(from,to,ms,token,walking=false){return new Promise(resolve=>{
     for(const k of ['x','bottom'])mayaStage[k]=from[k]+(to[k]-from[k])*eased;
     mayaStage.w=MAYA_UPRIGHT.w;mayaStage.h=MAYA_UPRIGHT.h;
     if(walking){
-      const step=Math.floor(now/145)%4;
-      if(step!==last){last=step;mayaSetFrame('walk_'+step+'-fixed.webp',to.x<from.x?'left':'right');}
+      const step=Math.floor(now/110)%8;
+      if(step!==last){last=step;mayaSetFrame('walk_v17_'+step+'.webp',to.x<from.x?'left':'right');}
     }
     mayaLayout();
     if(t<1)mayaMoveRaf=requestAnimationFrame(tick);
