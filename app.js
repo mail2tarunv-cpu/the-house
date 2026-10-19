@@ -11,31 +11,43 @@
   const detailScene = $('#detail-scene');
   const detailImage = $('#detail-image');
   const detailHotspots = $('#detail-hotspots');
-  const ROOM_IMAGES = {maya:'./assets/rooms/maya.webp',jay:'./assets/rooms/jay.webp',lounge:'./assets/rooms/lounge.webp'};
+  const ROOM_IMAGES = {
+    maya: './assets/rooms/maya.webp',
+    jay: './assets/rooms/jay.webp',
+    lounge: './assets/rooms/lounge.webp'
+  };
+  // Locations refer to the independently drawn 1672×941 room images, not the house overview.
   const DETAIL_HOTSPOTS = {
-    maya:[
-      {id:'books',name:'Book wall',x:785,y:495},
-      {id:'daily',name:'Daily photo',x:1417,y:584},
-      {id:'notes',name:'Visitor notes',x:1440,y:418},
-      {id:'update',name:'Life lately',x:1279,y:622}
+    maya: [
+      { id:'books', name:'Book wall', x:785, y:495 },
+      { id:'daily', name:'Daily photo', x:1417, y:584 },
+      { id:'notes', name:'Visitor notes', x:1440, y:418 },
+      { id:'update', name:'Life lately', x:1279, y:622 }
     ],
-    jay:[
-      {id:'movies',name:'Favorite movies',x:570,y:366},
-      {id:'vinyl',name:'Vinyl collection',x:520,y:600},
-      {id:'daily',name:'Daily photo',x:1463,y:687},
-      {id:'notes',name:'Visitor notes',x:1411,y:498},
-      {id:'update',name:'Life lately',x:1290,y:703}
+    jay: [
+      { id:'movies', name:'Favorite movies', x:570, y:366 },
+      { id:'vinyl', name:'Vinyl collection', x:520, y:600 },
+      { id:'daily', name:'Daily photo', x:1463, y:687 },
+      { id:'notes', name:'Visitor notes', x:1411, y:498 },
+      { id:'update', name:'Life lately', x:1290, y:703 }
     ],
-    lounge:[
-      {id:'gallery',name:'Memory wall',x:740,y:330},
-      {id:'tv',name:'Watch together',x:172,y:468},
-      {id:'daily',name:'Daily photo',x:640,y:455},
-      {id:'notes',name:'Visitor notes',x:624,y:668},
-      {id:'lounge',name:"Who's here?",x:905,y:546},
-      {id:'update',name:'Life updates',x:1305,y:421}
+    lounge: [
+      { id:'gallery', name:'Memory wall', x:740, y:330 },
+      { id:'tv', name:'Watch together', x:172, y:468 },
+      { id:'daily', name:'Daily photo', x:640, y:455 },
+      { id:'notes', name:'Visitor notes', x:624, y:668 },
+      { id:'lounge', name:"Who's here?", x:905, y:546 },
+      { id:'update', name:'Life updates', x:1305, y:421 }
     ]
   };
-  Object.values(ROOM_IMAGES).forEach(src=>{const preload=new Image();preload.src=src;});
+  // Preload and decode room art early; transitions are never tied to download timing.
+  const roomImageCache = new Map();
+  for (const [id, src] of Object.entries(ROOM_IMAGES)) {
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = src;
+    roomImageCache.set(id, img);
+  }
   const NS = 'http://www.w3.org/2000/svg';
   const ORIGINAL = { x:0, y:0, w:1672, h:941 };
   const PEOPLE = {
@@ -73,9 +85,51 @@
   const fmtToday=()=>new Date().toLocaleDateString('en-CA');
   const add=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,String(v)));parent.appendChild(e);return e;};
   const lerp=(a,b,t)=>a+(b-a)*t;
-  const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+  const ease = t => 1 - Math.pow(1 - Math.min(1,Math.max(0,t)),4);
+  const smooth = t => {const x=Math.min(1,Math.max(0,t));return x*x*(3-2*x);};
   function targetView(id){if(!id)return {...ORIGINAL};const r=ROOMS[id];const rect=scene.getBoundingClientRect();const ratio=Math.max(.7,rect.width/Math.max(1,rect.height));let w=r.w,h=w/ratio;const maxH=1100;if(h>maxH){h=maxH;w=h*ratio;}return {x:r.cx-w/2,y:r.cy-h/2,w,h};}
-  function cameraTo(room){const target=targetView(room),from={...view},token=++animationSerial,start=performance.now(),duration=reduce.matches?0:900;function tick(now){if(token!==animationSerial)return;const t=duration?Math.min(1,(now-start)/duration):1;const a=ease(t);view={x:lerp(from.x,target.x,a),y:lerp(from.y,target.y,a),w:lerp(from.w,target.w,a),h:lerp(from.h,target.h,a)};scene.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);if(t<1)requestAnimationFrame(tick);}requestAnimationFrame(tick);}
+  let queuedRoom = null;
+  let navigationFrame = 0;
+  function cameraTo(id) {
+    // A single clock drives the camera and sharp-room blend. No competing timers.
+    const token=++animationSerial;
+    cancelAnimationFrame(navigationFrame);
+    const from={...view},to=targetView(id);
+    const entering=Boolean(id);
+    const startOpacity=Math.min(1,Math.max(0,Number(detailScene.style.opacity || (entering ? 0 : 1))));
+    const start=performance.now();
+    const duration=reduce.matches?0:(entering?1060:970);
+    if(entering){detailScene.removeAttribute('hidden');detailScene.style.pointerEvents='none';}
+    const tick=now=>{
+      if(token!==animationSerial)return;
+      const ms=duration ? Math.min(duration,Math.max(0,now-start)) : duration;
+      // Enter: travel first, then reveal only as the camera approaches its destination.
+      // Exit: remove the detailed photo first, then pull the camera back out.
+      const travel=reduce.matches?1:(entering?ease(ms/820):ease((ms-170)/790));
+      const opacity=reduce.matches?(entering?1:0):(entering ? smooth((ms-555)/450) : 1-smooth(ms/380));
+      view={x:lerp(from.x,to.x,travel),y:lerp(from.y,to.y,travel),w:lerp(from.w,to.w,travel),h:lerp(from.h,to.h,travel)};
+      scene.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);
+      // If an image has not finished loading, keep the house on screen.
+      const ready=detailImage.complete&&detailImage.naturalWidth>0;
+      const alpha=entering?(ready?opacity:0):lerp(startOpacity,0,1-opacity);
+      detailScene.style.opacity=String(alpha);
+      detailScene.style.transform=`scale(${(1.022-0.022*(entering?opacity:1-opacity)).toFixed(4)})`;
+      if(ms<duration){navigationFrame=requestAnimationFrame(tick);return;}
+      if(!entering){detailScene.setAttribute('hidden','');detailScene.style.opacity='0';detailScene.style.transform='scale(1)';if(queuedRoom){const next=queuedRoom;queuedRoom=null;enter(next);}}
+      else if(!ready){
+        // Slow connections still get an eased reveal when the image arrives.
+        const desired=id;
+        const finish=()=>{
+          if(token!==animationSerial||currentRoom!==desired)return;
+          detailImage.onload=null;
+          detailScene.animate([{opacity:0,transform:'scale(1.022)'},{opacity:1,transform:'scale(1)'}],{duration:reduce.matches?0:420,easing:'cubic-bezier(.22,.7,.25,1)',fill:'forwards'}).finished.then(()=>{if(token===animationSerial){detailScene.style.opacity='1';detailScene.style.transform='scale(1)';detailScene.style.pointerEvents='auto';}}).catch(()=>{});
+        };
+        detailImage.addEventListener('load',finish,{once:true});
+      }
+      if(entering&&ready){detailScene.style.opacity='1';detailScene.style.transform='scale(1)';detailScene.style.pointerEvents='auto';}
+    };
+    navigationFrame=requestAnimationFrame(tick);
+  }
   const cls=(el,cl,on)=>el.classList.toggle(cl,Boolean(on));
   function drawActors(){actorsLayer.replaceChildren();ambientLayer.replaceChildren();return;const ids=currentRoom==='lounge'?['you',...Object.keys(data.loungeMembers).filter(id=>data.loungeMembers[id])]:currentRoom?[ROOMS[currentRoom].actor]:['maya','jay','you'];ids.forEach(id=>{
     const p=PEOPLE[id],s=avatarState[id],g=add('g',{'class':'character-button','role':'button','tabindex':'0','aria-label':`${p.name}, ${data.presence[id]?'online':'offline'}`},actorsLayer);
@@ -105,58 +159,33 @@
     const t=add('text',{x:item.x,y:item.y-28,'text-anchor':'middle',class:'marker-label'},g);t.textContent=item.name;
     const click=e=>{e.stopPropagation();openPanel(item.id,currentRoom);};g.addEventListener('click',click);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();click(e);}});
   }}
-  // Use an HTML image above the original house; Safari/Chrome differ on SVG.hidden.
-  // The SVG hotspot layer shares the photo's 1672×941 image coordinates.
-  let detailSerial = 0;
-  let detailTimer = null;
+  // HTML images render far more reliably as a close-up than an SVG marked hidden.
+  // The separate SVG hotspot layer shares the artwork's 1672×941 coordinates.
   function showDetail(id) {
-    const serial = ++detailSerial;
-    clearTimeout(detailTimer);
-    detailScene.classList.remove('is-visible');
     detailScene.removeAttribute('hidden');
-    detailScene.setAttribute('aria-label', ROOMS[id].name + ', interactive close-up');
+    detailScene.style.opacity='0';
+    detailScene.style.transform='scale(1.022)';
+    detailScene.style.pointerEvents='none';
+    detailImage.onload=null;
+    detailImage.onerror=()=>toast('This room image could not load.');
+    detailImage.src=ROOM_IMAGES[id];
+    detailScene.setAttribute('aria-label',ROOMS[id].name+', interactive close-up');
     detailHotspots.replaceChildren();
-    for (const spot of DETAIL_HOTSPOTS[id]) {
-      const g = add('g', {
-        class:'detail-hotspot',role:'button',tabindex:'0',
-        'aria-label':'Explore ' + spot.name
-      },detailHotspots);
+    for(const spot of DETAIL_HOTSPOTS[id]) {
+      const g=add('g',{class:'detail-hotspot',role:'button',tabindex:'0','aria-label':'Explore '+spot.name},detailHotspots);
       add('circle',{cx:spot.x,cy:spot.y,r:61,class:'detail-tap-target'},g);
       add('circle',{cx:spot.x,cy:spot.y,r:11,class:'detail-dot'},g);
-      const label = add('text',{x:spot.x,y:spot.y-27,'text-anchor':'middle',class:'detail-label'},g);
-      label.textContent = spot.name;
-      const select = e => {e.stopPropagation();openPanel(spot.id,id);};
+      const label=add('text',{x:spot.x,y:spot.y-27,'text-anchor':'middle',class:'detail-label'},g);
+      label.textContent=spot.name;
+      const select=e=>{e.stopPropagation();openPanel(spot.id,id);};
       g.addEventListener('click',select);
       g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e);}});
     }
-    const reveal = () => {
-      if (serial !== detailSerial || currentRoom !== id) return;
-      detailTimer = setTimeout(() => {
-        if (serial === detailSerial && currentRoom === id) detailScene.classList.add('is-visible');
-      }, reduce.matches ? 0 : 390);
-    };
-    const src = ROOM_IMAGES[id];
-    if (detailImage.getAttribute('src') !== src) {
-      detailImage.onload = reveal;
-      detailImage.onerror = () => { if (serial === detailSerial) toast('Could not load this room illustration.'); };
-      detailImage.src = src;
-    } else if (detailImage.complete && detailImage.naturalWidth > 0) {
-      reveal();
-    } else {
-      detailImage.onload = reveal;
-      detailImage.onerror = () => { if (serial === detailSerial) toast('Could not load this room illustration.'); };
-    }
   }
-  function hideDetail() {
-    ++detailSerial;
-    clearTimeout(detailTimer);
-    detailImage.onload = null;
-    detailScene.classList.remove('is-visible');
-    detailTimer = setTimeout(() => {
-      if (!currentRoom) detailScene.setAttribute('hidden', '');
-    }, reduce.matches ? 0 : 500);
+  function hideDetail(){
+    detailScene.style.pointerEvents='none';
   }
-  function enter(id){if(!ROOMS[id])return;currentRoom=id;if(id==='lounge'){const pos={you:[840,692],maya:[710,692],jay:[985,692]};for(const [key,[x,y]] of Object.entries(pos)){avatarState[key].x=x;avatarState[key].y=y;avatarState[key].targetX=x;}}else{const key=ROOMS[id].actor;avatarState[key].x=PEOPLE[key].x;avatarState[key].y=PEOPLE[key].y;avatarState[key].targetX=PEOPLE[key].x;}closePanel();const r=ROOMS[id];$('#scene-kicker').textContent=r.kicker;$('#scene-title').textContent=r.name;$('#scene-subtitle').textContent=r.description;$('#return-home').hidden=false;$('#room-targets').hidden=true;$('#scene-overlay').hidden=true;$('#scene-caption').hidden=false;buttons.forEach(b=>b.setAttribute('aria-current',b.dataset.goto===id?'true':'false'));$('#footer-label').textContent='INSIDE / '+r.name.toUpperCase();drawActors();drawHotspots();cameraTo(id);showDetail(id);}
+  function enter(id){if(!ROOMS[id])return;currentRoom=id;if(id==='lounge'){const pos={you:[840,692],maya:[710,692],jay:[985,692]};for(const [key,[x,y]] of Object.entries(pos)){avatarState[key].x=x;avatarState[key].y=y;avatarState[key].targetX=x;}}else{const key=ROOMS[id].actor;avatarState[key].x=PEOPLE[key].x;avatarState[key].y=PEOPLE[key].y;avatarState[key].targetX=PEOPLE[key].x;}closePanel();const r=ROOMS[id];$('#scene-kicker').textContent=r.kicker;$('#scene-title').textContent=r.name;$('#scene-subtitle').textContent=r.description;$('#return-home').hidden=false;$('#room-targets').hidden=true;$('#scene-overlay').hidden=true;$('#scene-caption').hidden=false;buttons.forEach(b=>b.setAttribute('aria-current',b.dataset.goto===id?'true':'false'));$('#footer-label').textContent='INSIDE / '+r.name.toUpperCase();drawActors();drawHotspots();showDetail(id);cameraTo(id);}
   function home(){currentRoom=null;for(const [key,p] of Object.entries(PEOPLE)){avatarState[key].x=p.x;avatarState[key].y=p.y;avatarState[key].targetX=p.x;}closePanel();$('#scene-kicker').textContent='COME ON IN';$('#scene-title').textContent='Different rooms. One little world.';$('#scene-subtitle').textContent="Step into a friend's space, leave a note, or see what everyone is up to.";$('#return-home').hidden=true;$('#room-targets').hidden=false;$('#scene-overlay').hidden=false;$('#scene-caption').hidden=true;buttons.forEach(b=>b.removeAttribute('aria-current'));$('#footer-label').textContent='HOUSE OVERVIEW · 01 / 01';drawActors();drawHotspots();hideDetail();cameraTo(null);}
   let toastTimer;
   function toast(message){const el=$('#toast');el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,2800);}
@@ -204,13 +233,18 @@
   $('#drawer-backdrop').addEventListener('click',closePanel);
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(panel)closePanel();else if(currentRoom)home();}});
   document.querySelectorAll('.room-hit').forEach(el=>{el.addEventListener('click',()=>enter(el.dataset.room));el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter(el.dataset.room);}});});
-  buttons.forEach(b=>b.addEventListener('click',()=>{if(currentRoom===b.dataset.goto)home();else enter(b.dataset.goto);}));
+  buttons.forEach(b=>b.addEventListener('click',()=>{
+    const next=b.dataset.goto;
+    if(currentRoom===next){queuedRoom=null;home();}
+    else if(currentRoom){queuedRoom=next;home();}
+    else{queuedRoom=null;enter(next);}
+  }));
   scene.addEventListener('click',e=>{return;if(!currentRoom||panel||e.target.closest('g[role=button]'))return;const pt=scene.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const mat=scene.getScreenCTM();if(!mat)return;const local=pt.matrixTransform(mat.inverse());const r=ROOMS[currentRoom],a=avatarState[r.actor],walk=r.walk;
     // Keep movement constrained to a believable strip of visible floor, away from large furniture.
     if(Math.abs(local.y-walk.y)>165)return;
     a.targetX=Math.max(walk.lo,Math.min(walk.hi,local.x));
   });
   let lastRatio=scene.clientWidth/Math.max(1,scene.clientHeight);
-  window.addEventListener('resize',()=>{const ratio=scene.clientWidth/Math.max(1,scene.clientHeight);if(Math.abs(ratio-lastRatio)>.08){lastRatio=ratio;cameraTo(currentRoom);}});
+  window.addEventListener('resize',()=>{const ratio=scene.clientWidth/Math.max(1,scene.clientHeight);if(Math.abs(ratio-lastRatio)>.08){lastRatio=ratio;++animationSerial;cancelAnimationFrame(navigationFrame);view=targetView(currentRoom);scene.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);if(currentRoom){detailScene.style.opacity='1';detailScene.style.transform='scale(1)';detailScene.style.pointerEvents='auto';}}});
   drawActors();drawHotspots();requestAnimationFrame(animate);
 })();
